@@ -9,6 +9,8 @@
  * A data-structure which is used for configuring the system.
  */
 
+typedef enum {RANDOM, MAX_SPREAD, INCREMENTAL} splitMethod;
+
 typedef enum sp_config_msg_t {
 	SP_CONFIG_MISSING_DIR,
 	SP_CONFIG_MISSING_PREFIX,
@@ -20,7 +22,9 @@ typedef enum sp_config_msg_t {
 	SP_CONFIG_INVALID_STRING,
 	SP_CONFIG_INVALID_ARGUMENT,
 	SP_CONFIG_INDEX_OUT_OF_RANGE,
-	SP_CONFIG_SUCCESS
+	SP_CONFIG_SUCCESS,
+    SP_CONFIG_CANNOT_COPY_FILE,
+    SP_CONFIG_INVALID_CONFIG_LINE
 } SP_CONFIG_MSG;
 
 typedef struct sp_config_t* SPConfig;
@@ -75,7 +79,7 @@ bool spConfigIsExtractionMode(const SPConfig config, SP_CONFIG_MSG* msg);
  * - SP_CONFIG_INVALID_ARGUMENT - if config == NULL
  * - SP_CONFIG_SUCCESS - in case of success
  */
-bool spConfigMinialGui(const SPConfig config, SP_CONFIG_MSG* msg);
+bool spConfigMinimalGui(const SPConfig config, SP_CONFIG_MSG* msg);
 
 /*
  * Returns the number of images set in the configuration file, i.e the value
@@ -158,17 +162,65 @@ SP_CONFIG_MSG spConfigGetImagePath(char* imagePath, const SPConfig config,
  *
  * @param imagePath - an address to store the result in, it must contain enough space.
  * @param config - the configuration structure
- * @param index - the index of the image.
  * @return
  *  - SP_CONFIG_INVALID_ARGUMENT - if imagePath == NULL or config == NULL
  *  - SP_CONFIG_SUCCESS - in case of success
  */
 SP_CONFIG_MSG spConfigGetPCAPath(char* pcaPath, const SPConfig config);
 
+
+
 /**
- * Frees all memory resources associate with config. 
+ * Returns the KDTree split method - RANDOM, MAX_SPREAD, INCREMENTAL, i.e
+ * the spKDTreeSplitMethod variable.
+ *
+ * @param config - the configuration structure
+ * @assert msg != NULL
+ * @param msg - pointer in which the msg returned by the function is stored
+ * 
+ * @return splitMethod enum which is RANDOM, MAX_SPREAD OR INCREMENTAL of null on failure.
+ *
+ * - SP_CONFIG_INVALID_ARGUMENT - if config == NULL
+ * - SP_CONFIG_SUCCESS - in case of success
+ */
+ splitMethod spConfigGetSplitMethod(SPConfig config,  SP_CONFIG_MSG* msg);
+
+/**
+ * The function stores in prefix string the image prefix as extracted from the configuration file.
+ *
+ * @param config - the configuration structure
+ * @assert prefix != NULL
+ * @param prefix - pointer in which the prefix returned by the function is stored
+ *
+ * @return
+ *
+ * - SP_CONFIG_INVALID_ARGUMENT - if config == NULL
+ * - SP_CONFIG_SUCCESS - in case of success
+ */
+SP_CONFIG_MSG spConfigGetImagesPrefix(char* prefix, SPConfig config);
+
+/**
+ * The function stores in suffix string the image suffix as extracted from the configuration file.
+ *
+ * @param config - the configuration structure
+ * @assert suffix != NULL
+ * @param suffix - pointer in which the prefix returned by the function is stored
+ *
+ * @return
+ *
+ * - SP_CONFIG_INVALID_ARGUMENT - if config == NULL
+ * - SP_CONFIG_SUCCESS - in case of success
+ */
+SP_CONFIG_MSG spConfigGetImagesSuffix(char* suffix, SPConfig config);
+
+/**
+ * Frees all memory resources associate with config.
  * If config == NULL nothig is done.
  */
 void spConfigDestroy(SPConfig config);
+
+/*
+ *  */
+SPConfig spConfigCreateManually(char* spImagesDirectory, char* spImagesPrefix, char*spImagesSuffix, int spNumOfImages,  int spNumOfFeatures, bool spExtractionMode, int spNumOfSimilarImages, splitMethod  spKDTreeSplitMethod , int spKNN, bool spMinimalGUI, int spLoggerLevel, char* spLoggerFilename, SP_CONFIG_MSG* msg);
 
 #endif /* SPCONFIG_H_ */
