@@ -32,13 +32,13 @@ typedef struct sp_config_t* SPConfig;
 /**
  * Creates a new system configuration struct. The configuration struct
  * is initialized based on the configuration file given by 'filename'.
- * 
+ *
  * @param filename - the name of the configuration file
  * @assert msg != NULL
  * @param msg - pointer in which the msg returned by the function is stored
  * @return NULL in case an error occurs. Otherwise, a pointer to a struct which
  * 		   contains all system configuration.
- * 
+ *
  * The resulting value stored in msg is as follow:
  * - SP_CONFIG_INVALID_ARGUMENT - if filename == NULL
  * - SP_CONFIG_CANNOT_OPEN_FILE - if the configuration file given by filename cannot be open
@@ -47,7 +47,7 @@ typedef struct sp_config_t* SPConfig;
  * - SP_CONFIG_INVALID_STRING - if a line in the config file contains invalid string
  * - SP_CONFIG_MISSING_DIR - if spImagesDirectory is missing
  * - SP_CONFIG_MISSING_PREFIX - if spImagesPrefix is missing
- * - SP_CONFIG_MISSING_SUFFIX - if spImagesSuffix is missing 
+ * - SP_CONFIG_MISSING_SUFFIX - if spImagesSuffix is missing
  * - SP_CONFIG_MISSING_NUM_IMAGES - if spNumOfImages is missing
  * - SP_CONFIG_SUCCESS - in case of success
  *
@@ -177,7 +177,7 @@ SP_CONFIG_MSG spConfigGetPCAPath(char* pcaPath, const SPConfig config);
  * @param config - the configuration structure
  * @assert msg != NULL
  * @param msg - pointer in which the msg returned by the function is stored
- * 
+ *
  * @return splitMethod enum which is RANDOM, MAX_SPREAD OR INCREMENTAL of null on failure.
  *
  * - SP_CONFIG_INVALID_ARGUMENT - if config == NULL
@@ -219,8 +219,18 @@ SP_CONFIG_MSG spConfigGetImagesSuffix(char* suffix, SPConfig config);
  */
 void spConfigDestroy(SPConfig config);
 
+
+
+
+int spConfigGetSPKNN(const SPConfig config, SP_CONFIG_MSG* msg);
+
+int spConfigGetNumOfSimilarImages(const SPConfig config, SP_CONFIG_MSG* msg);
+
 /*
  *  */
-SPConfig spConfigCreateManually(char* spImagesDirectory, char* spImagesPrefix, char*spImagesSuffix, int spNumOfImages,  int spNumOfFeatures, bool spExtractionMode, int spNumOfSimilarImages, splitMethod  spKDTreeSplitMethod , int spKNN, bool spMinimalGUI, int spLoggerLevel, char* spLoggerFilename, SP_CONFIG_MSG* msg);
+SPConfig spConfigCreateManually(SP_CONFIG_MSG* msg);
+
+
+SP_CONFIG_MSG spConfigGetFeatFilePath(char fullPath[], SPConfig config, int index, char* suffix);
 
 #endif /* SPCONFIG_H_ */
