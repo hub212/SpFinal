@@ -7,23 +7,22 @@
 
 #define EXIT_STRING "<>"
 
-#define D_USE_DEFAULT 1
-#define D_DEFAULT_IMAGE "D:\\Documents\\Dropbox\\TAU\\Software_Project\\HW\\Final_as_cpp\\Experiments\\exper1.png"
+#define D_USE_DEFAULT_IMAGE 0
+#define D_DEFAULT_IMAGE "D:\\Documents\\Dropbox\\TAU\\Software_Project\\HW\\Final_as_cpp\\Experiments\\exper2.png"
 
 char fileName[256];
-FILE* file;
 
 int Query(){
 	char c[256];
 	FILE* f;
-	printf("Please enter an image path:\n");
-	if(D_USE_DEFAULT == 0){
-        scanf("%s",c);
-        _D printf("DEBUG: The user entered the path: %s\n",c);
-        //TODO: consider checking if the input file is an image.
-	}else{
+
+	if(DEBUG && D_USE_DEFAULT_IMAGE){
         _D printf("[DEBUG]: Using Default Query image %s",D_DEFAULT_IMAGE);
         strcpy(c,D_DEFAULT_IMAGE);
+	}else{
+        printf("Please enter an image path:\n");
+        scanf("%s",c);
+        _D printf("DEBUG: The user entered the path: %s\n",c);
 	}
     if(strcmp(c,"") == 0 || strcmp(c,EXIT_STRING) == 0){
         PDEBUG("exit sting was entered.")
@@ -35,7 +34,8 @@ int Query(){
         return -1;
     }
     strcpy(fileName,c);
-    file = f;
+    fclose(f);
+    free(f);
 	return 1;
 }
 
@@ -43,10 +43,4 @@ char* QueryGetFileName(){
 	if(fileName == NULL)
 		PDEBUG("FileName is NULL.");
 	return fileName;
-}
-
-FILE* QueryGetFile(){
-	if(file == NULL)
-		PDEBUG("file is NULL.");
-	return file;
 }

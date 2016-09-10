@@ -71,7 +71,7 @@ KDTree KDTInit(SPPoint* arr, int size, splitMethod spKDTreeSplitMethod){ //TODO:
 	KDArray kda = KDAInit(arr,size);
 	KDTree kdt = (KDTree)malloc(sizeof(*kdt));
 	kdt->head = BuildTreeFromKDArray(kda,spKDTreeSplitMethod);
-	//KDADestroySaveSPPoints(kda); //TODO: doesn't save points
+	KDADestroySaveSPPoints(kda);
 	PDEBUG("FINISH Initilizing KDTree")
 	return kdt;
 }
@@ -82,7 +82,6 @@ KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod){
 		PDEBUG("null pointer was sent as argument 'kda'");
 		return NULL;
 	}
-	_D  printf("size of kda: %d\n", KDAGetSize(kda));
 	KDTreeNode kdtnode = (KDTreeNode)malloc(sizeof(*kdtnode));
 	if(KDAGetSize(kda) == 1){
 		kdtnode->dim = INVALID;
@@ -112,11 +111,7 @@ KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod){
 		return NULL;
 	}
 
-    _D printf("split dim: %d\n", splitDim);
 	int res = KDASplit(kda,splitDim,&leftKda,&rightKda);
-
-  //  _D 	print_kdarray(leftKda);
-  //  _D 	print_kdarray(rightKda);
 
 	if(res < 1){
 		PDEBUG("KDArray splitting failed.");
@@ -136,19 +131,20 @@ KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod){
 
 	PDEBUG("here by now")
 
-	//KDADestroySaveSPPoints(leftKda);
-	//KDADestroySaveSPPoints(rightKda);
+	KDADestroySaveSPPoints(leftKda);
+	KDADestroySaveSPPoints(rightKda);
 
 
 	return kdtnode;
 }
 
+//TODO: KDTNDestroy save SPPoints
 void KDTNDestroy(KDTreeNode kdtn){
 	if(kdtn == NULL){
 		PDEBUG("a null pointer was sent as argument 'kdtn'");
 		return;
 	}
-	spPointDestroy(kdtn->data);
+	//spPointDestroy(kdtn->data);
 	if(kdtn->left != NULL)
 		KDTNDestroy(kdtn->left);
 	if(kdtn->right != NULL)
@@ -215,9 +211,10 @@ int* getNearestNeighbors(KDTree kdt, SPPoint p, SPConfig config){
 	 IF_ERROR_EXIT(msg);
 	int* nearest;
 	SPBPQueue bpq = spBPQueueCreate(spKNN);
-	PDEBUG("ENTERING AUX FUNCTION")
+	//TODO: take care of errors
+
 	nearestNeighborsAux(kdt->head,bpq,p,k);
-    PDEBUG("EXITING AUX FUNCTION :)")
+
 	nearest = (int*)malloc(sizeof(int)*k);
 	SPListElement temp;
 	for(int i=0;i<k;i++){
@@ -226,16 +223,7 @@ int* getNearestNeighbors(KDTree kdt, SPPoint p, SPConfig config){
 		spBPQueueDequeue(bpq);
 	}
 
-	_DBLOCK
-			printf("\nIn Method:");
-			for(int i=0;i<k;i++){
-                    printf("[%d]",nearest[i]);
-			}
-			printf("\n");
-			_DEND
-
-
-//	spBPQueueDestroy(bpq);
+	spBPQueueDestroy(bpq);
 	return nearest;
 }
 
@@ -263,7 +251,7 @@ void nearestNeighborsAux(KDTreeNode curr, SPBPQueue bpq, SPPoint p, int k){
 	}
 	/* If the candidate hypersphere crosses this splitting plane, look on the
 	* other side of the plane by examining the other subtree*/
-	if(!spBPQueueIsFull(bpq) || square(spPointGetAxisCoor(p,curr->dim)-curr->val) < spBPQueueMaxValue(bpq)){
+	if(spBPQueueIsFull(bpq) == 0 || square(spPointGetAxisCoor(p,curr->dim)-curr->val) < spBPQueueMaxValue(bpq)){
 		if(searchedOnLeft)
 			nearestNeighborsAux(curr->right,bpq,p,k);
 		else

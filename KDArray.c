@@ -88,6 +88,7 @@ KDArray KDAInit(SPPoint* arr, int size){
         MALLOC_FAIL_NULL(dimMatrix[i])
         if(size > 1){
         	sortRes=getIndexesSorted(arr, size ,i,dimMatrix[i]);
+        	PDEBUG("all fine here1")
 			if (sortRes != 0) {
 				PDEBUG("sorting failed.");
 				//TODO: memory leak?
@@ -99,16 +100,14 @@ KDArray KDAInit(SPPoint* arr, int size){
 
 
     }
-
     kdarray->mat = dimMatrix;
     kdarray->dimension = dim;
     kdarray->size = size;
     kdarray->points = arr;
 
     if(DEBUG){
-    	//print_kdarray(kdarray);
+    	print_kdarray(kdarray);
     }
-    PDEBUG("and that's all")
     return kdarray;
 }
 
@@ -167,14 +166,6 @@ int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
     MALLOC_FAIL_INT(X,-1)
     for(int i=0;i<size;i++)
     	X[i] = 1;
-
-    _DBLOCK
-        PDEBUG("debugging zone")
-        for(int i=0;i<kdArr->size;i++){
-            printf("[%d]",kdArr->mat[coor][i]);
-        }
-        PDEBUG("out of debugging zone\n")
-    _DEND
 
     for(int i=0;i<ptsOnLeft;i++)
     	*(X+arrangement[i]) = 0;
@@ -253,17 +244,15 @@ int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
 	*kdLeft = leftkda;
 	*kdRight = rightkda;
 
-PDEBUG("\n\n:()\n\n")
 	if(DEBUG){
-		PDEBUG("splitted into:")
+	//	PDEBUG("splitted into:")
 	//	print_kdarray(*kdLeft);
-		printf("and:\n");
+	//	printf("and:\n");
 		//print_kdarray(*kdRight);
 	}
-	//free(map2); //TODO free cause error
-	//free(map1);
-	//free(X);
-	PDEBUG("for now")
+	free(map2);
+	free(map1);
+	free(X);
 	return 1;
 }
 
@@ -302,6 +291,7 @@ void print_kdarray(KDArray kdarray){
 	printf("========\n");
 }
 
+/* destroys also the SPPoints in the kdarray */
 void KDADestroy(KDArray kdArr){
 	if(kdArr == NULL)
 		return;
@@ -310,13 +300,17 @@ void KDADestroy(KDArray kdArr){
 	free(kdArr->points);
 
 	for(int i=0;i<kdArr->dimension;i++)
-		free((kdArr->mat[i]));
+		free(kdArr->mat[i]);
 	free(kdArr->mat);
 	free(kdArr);
 }
+
+
+/* Does not destroys the SPPoints in the kdarray  */
 void KDADestroySaveSPPoints(KDArray kdArr){
 	if(kdArr == NULL)
 		return;
+
 	free(kdArr->points);
 
 	for(int i=0;i<kdArr->dimension;i++)

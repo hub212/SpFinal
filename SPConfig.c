@@ -5,7 +5,6 @@
 //  Created by Shlomi Zabari on 8/19/16.
 //  Copyright (c) 2016 Shlomi Zabari. All rights reserved.
 //
-
 #define PAR_NUM 14
 #define NUM_SUFF 4
 
@@ -17,7 +16,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include "SPConfig.h"
-#include "debug.h"
+#include "Debug.h"
 
 
 struct sp_config_t {
@@ -858,7 +857,7 @@ bool spConfigIsExtractionMode(const SPConfig config, SP_CONFIG_MSG* msg) {
 
     *msg = SP_CONFIG_SUCCESS;
 
-    return config->spMinimalGUI;
+    return config->spExtractionMode;
 }
 
 
@@ -911,6 +910,7 @@ int spConfigGetPCADim(const SPConfig config, SP_CONFIG_MSG* msg) {
 
 
 
+
 /* Given an index 'index' the function stores in imagePath the full path of the
  * ith image.*/
 SP_CONFIG_MSG spConfigGetImagePath(char* imagePath, const SPConfig config, int index) {
@@ -929,81 +929,14 @@ SP_CONFIG_MSG spConfigGetImagePath(char* imagePath, const SPConfig config, int i
 
 
 
-/* The function stores in pcaPath the full path of the pca file. */
 SP_CONFIG_MSG spConfigGetPCAPath(char* pcaPath, const SPConfig config) {
-
-    char buff[1024];
-    char* srcPath;
-    unsigned int long pathSize;
-    struct stat fd;
-    size_t size;
-    FILE* src;
-    FILE* dst;
-
-    if (config == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> config null pointer\n");
-        return SP_CONFIG_INVALID_ARGUMENT;
+     if(config == NULL){
+        PDEBUG("null pointer was sent as parameter 'config");
+        return SP_CONFIG_SUCCESS; //TODO: fix
     }
-
-
-    if (pcaPath == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> imagePath null pointer\n");
-        return SP_CONFIG_INVALID_ARGUMENT;
-    }
-
-    // TODO : maybe add restriction on size - free space check
-
-    if (config->spImagesDirectory == NULL || config->spImagesPrefix == NULL || config->spImagesSuffix == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> image dir / prefix / sufix null pointer\n");
-        return SP_CONFIG_INVALID_ARGUMENT;
-    }
-
-    // checks if the image path exists
-    if (stat(pcaPath, &fd) <0){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> failure while trying to access imPath\n");
-        return SP_CONFIG_MISSING_DIR;
-    }
-
-    if (!S_ISDIR(fd.st_mode)){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> imPath is nor directory\n");
-        return SP_CONFIG_MISSING_DIR;
-    }
-
-    // allocating memory for destination path
-    pathSize = strlen(config->spImagesDirectory)+strlen(config->spImagesPrefix)+strlen(config->spImagesSuffix)+20;
-    if ((srcPath = (char*) malloc(pathSize*sizeof(char))) == NULL) {
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> memory allocation failed\n");
-        return SP_CONFIG_ALLOC_FAIL;
-    }
-
-    // creating the dest. path string
-    strcat(srcPath, config->spImagesDirectory);
-    strcat(srcPath, "/");
-    strcat(srcPath, config->spPcaFilename);
-
-    // open the files for read /write
-    if ((src = fopen(srcPath, "rb")) == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> open copy source path failure\n");
-        return SP_CONFIG_CANNOT_OPEN_FILE;
-    }
-
-    if ((dst = fopen(pcaPath, "wb")) == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetImagePath> open copy destination path failure\n");
-        return SP_CONFIG_CANNOT_OPEN_FILE;
-    }
-
-    // copy files
-    while ((size = fread(buff, 1, 1024, src))){
-        if (fwrite(buff,1,1024,dst) !=1024){
-            PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> copying files failure - write less than 1024 bytes\n");
-            return SP_CONFIG_CANNOT_COPY_FILE;
-        }
-    }
-
-    fclose(dst);
-    fclose(src);
-    free(srcPath);
-
+     _D printf("DEBUG: pcaPath: [%s]\n",config->spPcaFilename);
+    sprintf(pcaPath,"%s%s",config->spImagesDirectory,config->spPcaFilename);
+    _D printf("DEBUG: pcaPath: [%s]\n",pcaPath);
     return SP_CONFIG_SUCCESS;
 }
 
@@ -1203,11 +1136,11 @@ SPConfig spConfigCreateManually(SP_CONFIG_MSG* msg){
         return NULL;
     }
 
-    result->spImagesDirectory   = "D:\\Documents\\Dropbox\\TAU\\Software_Project\\HW\\Final_as_cpp\\images\\";
+    result->spImagesDirectory   = "/specific/a/home/cc/students/cs/barangel/Desktop/Software_Project/FinalProject/images/";
     result->spImagesPrefix      = "img";
     result->spImagesSuffix      = ".png";
-    result->spNumOfImages       = 15;
-    result->spNumOfFeatures     = 14;
+    result->spNumOfImages       = 5;
+    result->spNumOfFeatures     = 5;
     result->spExtractionMode    = true;
     result->spNumOfSimilarImages= 4;
     result->spKDTreeSplitMethod = RANDOM;
@@ -1216,13 +1149,11 @@ SPConfig spConfigCreateManually(SP_CONFIG_MSG* msg){
     result->spLoggerLevel       = 1;
     result->spLoggerFilename    = "log.log";
     result->spPcaFilename       = "pca.yml";
-    result->spPCADimension      = 5;
+    result->spPCADimension      = 4;
     *msg = SP_CONFIG_SUCCESS;
 
     return result;
 }
-
-
 
 void initializing_SPConfig(SPConfig spconfig) {
     spconfig->spNumOfImages = -1 ;
@@ -1271,6 +1202,8 @@ void free_splited(char** strArr) {
     free(strArr);
 }
 
+
+
 int spConfigGetSPKNN(const SPConfig config, SP_CONFIG_MSG* msg){
 	PDEBUG(">");
 	if (config == NULL) {
@@ -1279,6 +1212,19 @@ int spConfigGetSPKNN(const SPConfig config, SP_CONFIG_MSG* msg){
 	}
 	*msg = SP_CONFIG_SUCCESS;
 	return config->spKNN;
+}
+
+SP_CONFIG_MSG spConfigGetFeatFilePath(char fullPath[], SPConfig config, int index, char* suffix){
+    if(config == NULL){
+        PDEBUG("null pointer was sent as parameter 'config");
+        return SP_CONFIG_SUCCESS; //TODO: fix;
+    }
+    if(index >= config->spNumOfImages){
+        PDEBUG("invalid index")
+        return SP_CONFIG_SUCCESS; //TODO: fix;
+    }
+    sprintf(fullPath,"%s%s%d%s",config->spImagesDirectory,config->spImagesPrefix,index,suffix);
+     return SP_CONFIG_SUCCESS;
 }
 
 int spConfigGetNumOfSimilarImages(const SPConfig config, SP_CONFIG_MSG* msg){
@@ -1299,6 +1245,3 @@ bool spConfigMinimalGui(const SPConfig config, SP_CONFIG_MSG* msg){
 		*msg = SP_CONFIG_SUCCESS;
 		return config->spMinimalGUI;
 }
-
-
-
