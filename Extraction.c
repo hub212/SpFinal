@@ -9,34 +9,36 @@
 #include <math.h>
 #include <errno.h>
 #include <stdlib.h>
+#include  <fcntl.h>
+
+#include "Extraction.h"
 
 
-FILE filenameHandler(SPPoint config, int index) {
+FILE* filenameHandler(SPConfig config, int index) {
     
-    FILE    dest;
+    FILE    *dest;
     char*   buff;
-    int     strSize;
-    
+    long     strSize;
     
     // The feature string size  - directory + prefix + index + ".feats" + null terminator
-    strSize = strlen(config->spImagesDirectory) + strlen(config->spImagesPrefix) + (int) ceil(log(config->spNumOfImages)/log(2)) + 7;
+    strSize = strlen(config->spImagesDirectory) + strlen(config->spImagesPrefix) + (long) ceil(log(config->spNumOfImages)/log(2)) + 7;
     
     // filename allocation
     if ((buff = (char*) malloc(sizeof(char)*strSize)) == NULL) {
         // add debug error message
-        return NULL;
+        return dest;
     }
     
     // copying string to buffer
     if (sprintf(buff, "%s%s%0d.feats",config->spImagesDirectory,config->spImagesPrefix,index) < 0) {
         // add error meassage
-        return NULL;
+        return dest;
     }
     
     // open new file to write and read
-    if((dest = fopen(buff,'r+')) == NULL) {
+    if((dest = fopen(buff,"r+")) == NULL) {
         // add debiug error message
-        return NULL;
+        return dest;
     }
     
     free(buff);
@@ -62,12 +64,11 @@ int saveExtractedFeatures(SPConfig config ,SPPoint* feats, int count){
 
 
     char*   buff;
-    FILE    dest;
+    FILE*    dest;
     
     int     strSize;
     int     intgSize;
     int     remdrSize = 10;
-    int     fd;
     int     index;
     
     
@@ -113,7 +114,7 @@ int saveExtractedFeatures(SPConfig config ,SPPoint* feats, int count){
         
         // integral part size
         
-        intgSize = (int) ceil(log((int) floor(feats[index]->p_coor))/log(2));
+        intgSize = (int) ceil(log((int) floor(*feats[index]->p_coor))/log(2));
         
         // string size - \t + integral + '.' + reminder +\n + \0
         strSize = intgSize + remdrSize + 4;
@@ -125,7 +126,7 @@ int saveExtractedFeatures(SPConfig config ,SPPoint* feats, int count){
         }
         
         // Copying floating point into string
-        if(sprintf(buff, "\t%.10f\n",feats[index]->p_coor) < 0) {
+        if(sprintf(buff, "\t%.10f\n",*feats[index]->p_coor) < 0) {
             // add error message
             return -1;
         }
@@ -159,11 +160,12 @@ int saveExtractedFeatures(SPConfig config ,SPPoint* feats, int count){
             return -1;
         }
         
-        close(dest);
+        fclose(dest);
+        free(buff);
         
     }
     
-    free(buff);
+    return 0;
 }
 
 
@@ -179,12 +181,15 @@ int saveExtractedFeatures(SPConfig config ,SPPoint* feats, int count){
 */
 int getExtractedFeatures(SPConfig config, int indexOfImage ,SPPoint** pfeats) {
 
-    FILE    featsFile;
+    FILE*    featsFile;
     char*   line = NULL;
     char*   endptr;
     size_t  size = 1024;
     int     line_num = 0;
-    int     tmp_int;
+    int     index;
+    
+    long    tmp_int = 0;
+    double  tmp_double = 0;
     
     
     
@@ -245,24 +250,24 @@ int getExtractedFeatures(SPConfig config, int indexOfImage ,SPPoint** pfeats) {
         switch (line_num) {
             case 0 : // index line
             {
-                *pfeats[indexOfImage]->index = tmp_int;
+                (*pfeats)[indexOfImage]->index = (int) tmp_int;
                 break;
             }
             case 1 : // dim line
             {
-                *pfeats[indexOfImage]->dim = tmp_int;
+                (*pfeats)[indexOfImage]->dim = (int)tmp_int;
                 break;
             }
             case 2 : // p_coor line
             {
-                *pfeats[indexOfImage]->p_coor = tmp_double;
+                *(*pfeats)[indexOfImage]->p_coor = tmp_double;
                 break;
             }
         }
     }
     
     free(line);
-    close(featsFile);
+    fclose(featsFile);
     
     return 0;
 }

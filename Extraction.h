@@ -7,6 +7,8 @@
 
 #include "SPConfig.h"
 #include "SPPoint.h"
+#include "SPLogger.h"
+#include "Debug.h"
 
 #ifndef EXTRACTION_H_
 #define EXTRACTION_H_
