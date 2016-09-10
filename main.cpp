@@ -17,10 +17,10 @@ extern "C"{
 #define IF_ERROR_EXIT(x) if((x) != SP_CONFIG_SUCCESS){  PDEBUG("last called method did not success"); spConfigDestroy(config); return ERROR_VALUE; }
 
 #define ERROR_VALUE -1
-#define DEFAULT_CONFIG "spcbir.config"
+#define DEFAULT_CONFIG "D:\\Documents\\Dropbox\\TAU\\Software_Project\\HW\\Final_as_cpp\\spcbir.config"
 #define PRINT_ERROR_HERE(x) spLoggerPrintError((x), __FILE__, __func__, __LINE__);
 
-#define GET_CONFIG_FROMFILE 0
+#define GET_CONFIG_FROMFILE 1
 #define STR_MAX 256
 
 
@@ -81,7 +81,7 @@ int main(int argc,char** argv){
 		}
 
 		bool configSent = false;
-		char* configFileName;
+		char configFileName[256];
 		if(argc > 1 && strcmp(argv[argc-1],"-c") == 0){
 			perror("Invalid command line : use -c <config_filename>");
 			spConfigDestroy(config);//TODO: check
@@ -91,17 +91,16 @@ int main(int argc,char** argv){
 		for(int i=1;i<argc-1;i++)
 			if(strcmp(argv[i],"-c") == 0){
 				configSent = true;
-				configFileName = argv[i+1];
+				strcpy(configFileName,argv[i+1]);
 			}
 
 		if(configSent == false){
 			strcpy(configFileName,DEFAULT_CONFIG);
 			_D printf("DEBUG: using default configuration file: %s\n",DEFAULT_CONFIG);
 		}
-
+    _D printf(">>>>>>>>configFileName: %s\n", configFileName);
 	    config = spConfigCreate(configFileName,&msg);
-
-
+	    PDEBUG("here is good");
 		switch(msg){
 		case SP_CONFIG_CANNOT_OPEN_FILE:
 			if(configSent)
@@ -148,6 +147,7 @@ int main(int argc,char** argv){
 		IF_ERROR_EXIT(msg);
 	}
 
+	PDEBUG("here is good too");
 
 	bool extractionMode = spConfigIsExtractionMode(config, &msg);
 	IF_ERROR_EXIT(msg);
@@ -158,6 +158,8 @@ int main(int argc,char** argv){
 
 	int numOfImages = spConfigGetNumOfImages(config, &msg);
 	IF_ERROR_EXIT(msg);
+
+	PDEBUG("here is good again");
 
 	sp::ImageProc improc (config);
 
