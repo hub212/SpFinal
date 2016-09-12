@@ -139,8 +139,8 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
     // TODO - free
 
     // reading all file
-    while (fgets(&line, &size, configFile) != -1) {
-
+    while (getline(&line, &size, configFile) != -1) {
+        
         line_num++;
         str_flag = 0;
         errno = 0;
