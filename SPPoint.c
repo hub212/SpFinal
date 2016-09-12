@@ -5,7 +5,7 @@
 //  Created by Shlomi Zabari on 5/25/16.
 //  Copyright (c) 2016 Shlomi Zabari. All rights reserved.
 //
-#define DEBUG 1
+#define DEBUG 0
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,13 +18,13 @@ struct sp_point_t {
     int         dim;
     double*     p_coor;
     int         index;
-    
+
 };
 
 
 /** Copy arrays **/
 void copying_arr(double* orig, double* dest, int dim){
-    
+
     int i;
     for (i = 0; i < dim; i++)
         *(dest +i) = *(orig + i);
@@ -45,35 +45,35 @@ void copying_arr(double* orig, double* dest, int dim){
  * Otherwise, the new point is returned
  */
 SPPoint spPointCreate(double* data, int dim, int index) {
-    
+
     assert(dim>0);
     assert(index>=0);
-    
+
     SPPoint new_point;
-    
+
     // allocationg memory for point
     if((new_point = (SPPoint)malloc(sizeof(int)*2+sizeof(double*))) == NULL){
         perror("ERROR : spPointCreate failed - ");
         return NULL;
     }
-   
+
     // alocating memory for point's coordinates
     if ((new_point->p_coor = (double*)malloc(sizeof(double)*dim)) == NULL){
         perror("ERROR : spPointCreate failed - ");
         free(new_point);
         return NULL;
     }
-    
+
     // copying data to point
     copying_arr(data, new_point->p_coor, dim);
     new_point->index = index;
     new_point->dim   = dim;
-    
+
     if (DEBUG){
         printf("DEBUG : [New point Created]\n");
-        print_point(new_point);
+        //print_point(new_point);
     }
-    
+
     return new_point;
 }
 
@@ -124,7 +124,7 @@ int spPointGetDimension(SPPoint point){
     assert(point != NULL);
     if(DEBUG){
         printf("DEBUG : [spPointGetDimension]\n");
-        print_point(point);
+        //print_point(point);
         printf("DEBUG : dim is %d\n", point->index);
     }
     return point->dim;
@@ -142,7 +142,7 @@ int spPointGetIndex(SPPoint point){
     assert(point != NULL);
     if(DEBUG){
         printf("DEBUG : [spPointGetIndex]\n");
-        print_point(point);
+        //print_point(point);
         printf("DEBUG : index is %d\n", point->index);
     }
     return point->index;
@@ -163,7 +163,7 @@ double spPointGetAxisCoor(SPPoint point, int axis){
     assert (axis<point->dim);
     if(DEBUG){
         printf("DEBUG : [spPointGetAxisCoor]\n");
-        print_point(point);
+        //print_point(point);
         printf("DEBUG : coordinate on axis %d is %f\n", axis, point->p_coor[axis]);
     }
     return point->p_coor[axis];
@@ -182,30 +182,29 @@ double spPointGetAxisCoor(SPPoint point, int axis){
  */
 double spPointL2SquaredDistance(SPPoint p, SPPoint q){
     assert((p != NULL) && (q != NULL) && (p->dim == q->dim));
-    
+
     double dist = 0;
     int i;
-    
+
     for (i = 0; i < q->dim; i++)
         dist+=(q->p_coor[i]-p->p_coor[i])*(q->p_coor[i]-p->p_coor[i]);
     if (DEBUG) {
         printf("DEBUG : [spPointL2SquaredDistance]\n");
-        print_point(p);
-        print_point(q);
+        //print_point(p);
+        //print_point(q);
         printf("DEBUG : distance between points is %f\n", dist);
     }
-    
+
     return dist;
 }
 
 
 void print_point(SPPoint point) {
-    printf("DEBUG : -------------- Index %d ---------------\n", point->index);
-    printf("DEBUG : \t\tdim : %d\n", point->dim);
-    printf("DEBUG : \t\tcoordinates :\n");
+    printf("DEBUG : %d ;", point->index);
     for (int i=0; i<point->dim; i++) {
-        printf("DEBUG : \t\t\tcoor[%d] - %f\n",i,point->p_coor[i]);
+        printf("%.1f , ",point->p_coor[i]);
     }
+    printf("\n");
 }
 
 int sizeofSPPoint(){

@@ -5,7 +5,6 @@
 //  Created by Shlomi Zabari on 8/19/16.
 //  Copyright (c) 2016 Shlomi Zabari. All rights reserved.
 //
-
 #define PAR_NUM 14
 #define NUM_SUFF 4
 
@@ -17,7 +16,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include "SPConfig.h"
-#include "debug.h"
+#include "Debug.h"
 
 
 struct sp_config_t {
@@ -27,18 +26,18 @@ struct sp_config_t {
     int spNumOfSimilarImages;
     int spKNN;
     int spLoggerLevel;
-    
+
     int assignArr[5];
-    
+
     bool spExtractionMode;
     bool spMinimalGUI;
-    
+
     char* spImagesDirectory;
     char* spImagesPrefix;
     char* spImagesSuffix;
     char* spPcaFilename;
     char* spLoggerFilename;
-    
+
     splitMethod spKDTreeSplitMethod;
 };
 
@@ -51,13 +50,13 @@ void free_splited(char** strArr);
 /* Creates a new system configuration struct. The configuration struct
  * is initialized based on the configuration file given by 'filename'.*/
 SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
-    
+
     // validVarsNames - holds valid variables names
     char*  validVarsNames[PAR_NUM]  = {"spImagesDirectory", "spImagesPrefix", "spImagesSuffix", "spNumOfImages",                     "spPCADimension","spPcaFilename", "spNumOfFeatures", "spExtractionMode", "spNumOfSimilarImages", "spKDTreeSplitMethod","spKNN"         ,"spMinimalGUI","spLoggerLevel","spLoggerFilename"};
-    
+
     // intStrIndc - holds indecator for each parameter telling if it int or str (enum and bool considered as strings)
     int     intStrIndc[PAR_NUM]     = {0,0,0,1,1,0,1,0 ,1,0,1,0,1,0};
-    
+
     char*   suffArr[NUM_SUFF] = {".jpg",".png",".bmp",".gif"};
     char*   line;
     char*   line_cpy;
@@ -66,42 +65,42 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
     char**  mid_white;
     char*   tmp;
     char*   endptr;
-    
+
     int     count_eq;
     int     index;
     int     suffix_int;
     int     line_num = 0;
     int     str_flag = 0;
     int     no_value = 0;
-    
+
     long    int_val = 0;
-    
+
     size_t  size = 1024;
     FILE*   configFile;
     struct  stat fd;
-    
+
     SPConfig spconfig;
-    
+
     // checks if the file is regular
         if (stat(filename, &fd) <0){
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> failure while trying to access filename\n");
             *msg = SP_CONFIG_INVALID_ARGUMENT;
             return NULL;
         }
-    
+
     if (!S_ISREG(fd.st_mode)){
         PDEBUG("[ERROR][CONFIG] <spConfigCreate> filename is not a regular file\n");
         *msg = SP_CONFIG_INVALID_ARGUMENT;
         return NULL;
     }
-    
+
     // open the files for read
     if ((configFile = fopen(filename, "rb")) == NULL){
         PDEBUG("[ERROR][CONFIG] <spConfigCreate> open copy source path failure\n");
         *msg = SP_CONFIG_CANNOT_OPEN_FILE;
         return NULL;
     }
-    
+
     // allocating memory for buffer reading
     if ((line = (char*) malloc(size*sizeof(char))) == NULL) {
         PDEBUG("[ERROR][CONFIG] <spConfigCreate> intial read line memory allocation failed\n");
@@ -110,7 +109,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
         fclose(configFile);
         return NULL;
     }
-    
+
     // allocating memoryfor SPconfig struct
     if ((spconfig = (SPConfig) malloc(sizeof(spconfig)))== NULL) {
         PDEBUG("[ERROR][CONFIG] <spConfigCreate> SPConfig struct memory allocation failed\n");
@@ -120,12 +119,12 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
         free(line);
         return NULL;
     }
-    
+
     // initializing spconfig
     initializing_SPConfig(spconfig);
-    
+
     // reseting default values
-    
+
     spconfig->spPCADimension = 20;
     spconfig->spPcaFilename = "pca.yml";
     spconfig->spNumOfFeatures = 100;
@@ -136,30 +135,30 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
     spconfig->spKDTreeSplitMethod = MAX_SPREAD;
     spconfig->spLoggerLevel = 3;
     spconfig->spLoggerFilename = "stdout";
-    
+
     // TODO - free
-    
+
     // reading all file
     while (getline(&line, &size, configFile) != -1) {
         
         line_num++;
         str_flag = 0;
         errno = 0;
-        
+
         // ignore leading whitespace
-        
+
         // Trim leading space
         while(isspace(*line)) line++;
-        
+
         if(*line == 0)  // All spaces? go to the next line
             continue;
-        
+
         if (*line == '#') // A comment line? go to the next line
             continue;
-        
+
         // deals with '=' delimiter
         tmp = line;
-        
+
         // count how many times '=' occurs
         while(*tmp) {
             if (*tmp == '=')
@@ -177,7 +176,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
             }
             tmp++;
         }
-        
+
         // making a line copy for debug - first allocting pepory
         if((line_cpy = (char*) malloc(sizeof(char)*(strlen(line)+2))) == NULL) {
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> original line copy memory allocation failed");
@@ -188,10 +187,10 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
             free(spconfig);
             return NULL;
         }
-        
+
         // then copying
         strcpy(line_cpy,line);
-        
+
         // Split with respect to '='  - check if legal (line no longer contains the current line - only the copy)
         if ((splited_line = (char**) str_split(line, '=')) == NULL) {
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> couldn't split line with respect to '=' , line:");
@@ -204,7 +203,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
             *msg = SP_CONFIG_INVALID_CONFIG_LINE;
             return NULL;
         }
-        
+
         // sanity check should have two parts only
         if ((sizeof(splited_line)/sizeof(char*)) > 2) {
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> more than one '=' where found (sanity check failure - Programming error), line:");
@@ -223,7 +222,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
             free_splited(splited_line);
             return NULL;
         }
-        
+
         // check for mid white spaces in the value string - uses the split line with " " delemiter
         if ((valueStrCpy = (char*) malloc(sizeof(char)*strlen(splited_line[1]+1)))== NULL) {
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> value copy (splited_line[1]) memory allocation failed");
@@ -259,19 +258,19 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
             free(valueStrCpy);
             return NULL;
         }
-        
+
         // free value whitspace helpers allocation
         free_splited(mid_white);
         free(valueStrCpy);
-        
-        
+
+
         PDEBUG("[CONFIG] <spConfigCreate> removing white sapces from lines:");
         // remove all whitespaces from line
         for (int i = 0 ; i<2 ; i++) {
             removeWhiteSpaces(splited_line[i]);
             PDEBUG(splited_line[i]);
         }
-        
+
         PDEBUG("[CONFIG] finding parameter:");
         // find the right parameter (if legal)
         for(index=0; index<PAR_NUM; index++) {
@@ -280,7 +279,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                 continue;
             }
         }
-        
+
         // check for type
         if (index==PAR_NUM) {
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> can't find parameter, line:");
@@ -301,16 +300,16 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
             free(valueStrCpy);
             return NULL;
         }
-    
+
         // if we got here - the param is valid - checking if value exists
         if (strcmp(splited_line[1],""))
             no_value = 1;
-        
+
         // check type - assign str_flag to 0 or 1
         str_flag = intStrIndc[index];
-        
+
         if (str_flag) { // the var should be valid string type parameter
-            
+
             switch(index) {
                 case 0: // spImageDirectory - string with no spaces (the spaces terminated before)
                 {
@@ -329,7 +328,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         free(valueStrCpy);
                         return NULL;
                     }
-                    
+
                     // allocating memory for buffer reading
                     if ((spconfig->spImagesDirectory = (char*) malloc(strlen(splited_line[1]+2)*sizeof(char))) == NULL) {
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> intial read line memory allocation failed, line:");
@@ -349,10 +348,10 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         free(valueStrCpy);
                         return NULL;
                     }
-                    
+
                     strcpy(spconfig->spImagesDirectory,splited_line[1]);
                     spconfig->assignArr[0] = 1; // marking allocation
-                    
+
                     break;
                 }
                 case 1: // spImagesPrefix - no spaces string
@@ -392,7 +391,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         free(valueStrCpy);
                         return NULL;
                     }
-                    
+
                     strcpy(spconfig->spImagesPrefix,splited_line[1]);
                     spconfig->assignArr[1] = 1; // marking allocation
 
@@ -437,14 +436,14 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                                 free(valueStrCpy);
                                 return NULL;
                             }
-                            
+
                             strcpy(spconfig->spImagesSuffix,suffArr[suffix_int]);
                             spconfig->assignArr[2] = 1; // marking allocation
 
                             break;
                         }
                     } // end suffix loop
-                    
+
                     // if we got here with the last index it means we didnt match any of them
                     if (suffix_int == (NUM_SUFF-1)) { // invalid image suffix
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> invalid suufix type, line:");
@@ -468,8 +467,8 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                 }
                 case 5: // spPCAfilename - no spaces string (trimed before)
                 {
-                    
-                    
+
+
                     // allocating memory for copy buffer
                     if ((spconfig->spPcaFilename = (char*) malloc(strlen(splited_line[1]+2)*sizeof(char))) == NULL) {
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> intial read line memory allocation failed, line:");
@@ -489,7 +488,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         free(valueStrCpy);
                         return NULL;
                     }
-                    
+
                     strcpy(spconfig->spPcaFilename ,splited_line[1]);
                     spconfig->assignArr[3] = 1; // marking allocation
 
@@ -603,17 +602,17 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         free(valueStrCpy);
                         return NULL;
                     }
-                    
+
                     strcpy(spconfig->spLoggerFilename,splited_line[1]);
                     spconfig->assignArr[4] = 1; // marking allocation
-                    
+
                     break;
                 }
             }
-            
+
         }
         else {
-            
+
             // Extracting integer from the string and dealing errors
             if (!no_value) {
                 int_val = strtol(splited_line[1], &endptr, 10);
@@ -638,7 +637,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                     free(valueStrCpy);
                     return NULL;
                 }
-            
+
                 if (splited_line[1] == endptr) {
                     // conversion failed (no characters consumed)
                     PDEBUG("[ERROR][CONFIG] <spConfigCreate> conversion failed (no characters consumed)\n");
@@ -668,10 +667,10 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                     return NULL;
                 }
             }
-        
+
             // extraction done!
-        
-        
+
+
             switch (index) {
                 case 3: // spNumOfImages
                 {
@@ -775,7 +774,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                 {
                     if (no_value) // defaultive value - 1
                         break;
-                    
+
                     if (int_val<=0) {
                         // constraints - pos. int.
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> spKNN should be positive int\n");
@@ -798,7 +797,7 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                 {
                     if (no_value) // defaultive value - 3
                         break;
-                    
+
                     if (int_val<1 || int_val>4) {
                         // constraints - 1<= int_val <= 4
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> spLoggerLevel should be in rang 10 to 28\n");
@@ -832,33 +831,33 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                 }
                     break;
             } // switch case
-        
+
         } // integer params
-        
+
         free(line_cpy); // freeing each line's copy
         free_splited(splited_line);
     } // getline loop
-    
+
     free(line); // freeing line allocation
-    
+
     *msg = SP_CONFIG_SUCCESS;
     PDEBUG("[CONFIG] <spConfigCreate> config done!\n");
-    
+
     fclose(configFile);
     return spconfig;
 }
 
 /* Returns true if spExtractionMode = true, false otherwise. */
 bool spConfigIsExtractionMode(const SPConfig config, SP_CONFIG_MSG* msg) {
-    
+
     if (config == NULL) {
         *msg = SP_CONFIG_INVALID_ARGUMENT;
         return false;
     }
-    
+
     *msg = SP_CONFIG_SUCCESS;
-    
-    return config->spMinimalGUI;
+
+    return config->spExtractionMode;
 }
 
 
@@ -866,14 +865,14 @@ bool spConfigIsExtractionMode(const SPConfig config, SP_CONFIG_MSG* msg) {
 /* Returns the number of images set in the configuration file, i.e the value
  * of spNumOfImages. */
 int spConfigGetNumOfImages(const SPConfig config, SP_CONFIG_MSG* msg) {
-    
+
     if (config == NULL) {
         *msg = SP_CONFIG_INVALID_ARGUMENT;
         return false;
     }
-    
+
     *msg = SP_CONFIG_SUCCESS;
-    
+
     return config->spNumOfImages;
 }
 
@@ -881,15 +880,15 @@ int spConfigGetNumOfImages(const SPConfig config, SP_CONFIG_MSG* msg) {
 /* Returns the number of features to be extracted. i.e the value
  * of spNumOfFeatures. */
 int spConfigGetNumOfFeatures(const SPConfig config, SP_CONFIG_MSG* msg) {
-    
+
     if (config == NULL) {
         PDEBUG("[CONFIG] <spConfigGetNumOfFeatures> config null pointer");
         *msg = SP_CONFIG_INVALID_ARGUMENT;
         return false;
     }
-    
+
     *msg = SP_CONFIG_SUCCESS;
-    
+
     return config->spNumOfFeatures;
 
 }
@@ -897,176 +896,47 @@ int spConfigGetNumOfFeatures(const SPConfig config, SP_CONFIG_MSG* msg) {
 
 /* Returns the dimension of the PCA. i.e the value of spPCADimension.*/
 int spConfigGetPCADim(const SPConfig config, SP_CONFIG_MSG* msg) {
-    
+
     if (config == NULL) {
         PDEBUG("[CONFIG] <spConfigGetPCADim> config null pointer");
         *msg = SP_CONFIG_INVALID_ARGUMENT;
         return false;
     }
-    
+
     *msg = SP_CONFIG_SUCCESS;
-    
+
     return config->spPCADimension;
 }
 
 
 
+
 /* Given an index 'index' the function stores in imagePath the full path of the
  * ith image.*/
-SP_CONFIG_MSG spConfigGetImagePath(char* imagePath, const SPConfig config,
-                                   int index) {
-    
-    char buff[1024];
-    char* srcPath;
-    char indexS[1024];
-    unsigned int long pathSize;
-    size_t size;
-    FILE* src;
-    FILE* dst;
-    
-    if (config == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetImagePath> config null pointer\n");
-        return SP_CONFIG_INVALID_ARGUMENT;
+SP_CONFIG_MSG spConfigGetImagePath(char* imagePath, const SPConfig config, int index) {
+    if(config == NULL){
+        PDEBUG("null pointer was sent as parameter 'config");
+        return SP_CONFIG_SUCCESS; //TODO: fix
     }
-    
-    if (index < 0 || (index >= config->spNumOfImages)) {
-        PDEBUG("[ERROR][CONFIG] <spConfigGetImagePath> index out of range\n");
-        return SP_CONFIG_INDEX_OUT_OF_RANGE;
+    if(index >= config->spNumOfImages){
+        PDEBUG("invalid index")
+        return SP_CONFIG_SUCCESS; //TODO: fix
     }
-    
-    if (imagePath == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetImagePath> imagePath null pointer\n");
-        return SP_CONFIG_INVALID_ARGUMENT;
-    }
-    
-    // TODO : maybe add restriction on size - free space check
-    
-    if (config->spImagesDirectory == NULL || config->spImagesPrefix == NULL || config->spImagesSuffix == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetImagePath> image dir / prefix / sufix null pointer\n");
-        return SP_CONFIG_INVALID_ARGUMENT;
-    }
-    
-    
-    // allocating memory for destination path
-    pathSize = strlen(config->spImagesDirectory)+strlen(config->spImagesPrefix)+strlen(config->spImagesSuffix)+20;
-    if ((srcPath = (char*) malloc(pathSize*sizeof(char))) == NULL) {
-        PDEBUG("[ERROR][CONFIG] <spConfigGetImagePath> memory allocation failed\n");
-        return SP_CONFIG_ALLOC_FAIL;
-    }
-    
-    // creating the dest. path string
-    sprintf(indexS, "%d",index);
-    
-    strcat(srcPath, config->spImagesDirectory);
-    strcat(srcPath, "/");
-    strcat(srcPath, config->spImagesPrefix);
-    strcat(srcPath, indexS);
-    strcat(srcPath, ".");
-    strcat(srcPath, config->spImagesSuffix);
-    
-    // open the files for read /write
-    if ((src = fopen(srcPath, "rb")) == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetImagePath> open copy source path failure\n");
-        return SP_CONFIG_CANNOT_OPEN_FILE;
-    }
-    
-    if ((dst = fopen(imagePath, "wb")) == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetImagePath> open copy destination path failure\n");
-        return SP_CONFIG_CANNOT_OPEN_FILE;
-    }
-
-    // copy files
-    while ((size = fread(buff, 1, 1024, src))){
-        if (fwrite(buff,1,1024,dst) !=1024){
-            PDEBUG("[ERROR][CONFIG] <spConfigGetImagePath> copying files failure - write less than 1024 bytes\n");
-            return SP_CONFIG_CANNOT_COPY_FILE;
-        }
-    }
-    
-    fclose(dst);
-    fclose(src);
-    free(srcPath);
-    
+    sprintf(imagePath,"%s%s%d%s",config->spImagesDirectory,config->spImagesPrefix,index,config->spImagesSuffix);
     return SP_CONFIG_SUCCESS;
-    
 }
 
 
-/* The function stores in pcaPath the full path of the pca file. */
+
+
 SP_CONFIG_MSG spConfigGetPCAPath(char* pcaPath, const SPConfig config) {
-    
-    char buff[1024];
-    char* srcPath;
-    unsigned int long pathSize;
-    struct stat fd;
-    size_t size;
-    FILE* src;
-    FILE* dst;
-    
-    if (config == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> config null pointer\n");
-        return SP_CONFIG_INVALID_ARGUMENT;
+     if(config == NULL){
+        PDEBUG("null pointer was sent as parameter 'config");
+        return SP_CONFIG_SUCCESS; //TODO: fix
     }
-    
-    
-    if (pcaPath == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> imagePath null pointer\n");
-        return SP_CONFIG_INVALID_ARGUMENT;
-    }
-    
-    // TODO : maybe add restriction on size - free space check
-    
-    if (config->spImagesDirectory == NULL || config->spImagesPrefix == NULL || config->spImagesSuffix == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> image dir / prefix / sufix null pointer\n");
-        return SP_CONFIG_INVALID_ARGUMENT;
-    }
-    
-    // checks if the image path exists
-    if (stat(pcaPath, &fd) <0){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> failure while trying to access imPath\n");
-        return SP_CONFIG_MISSING_DIR;
-    }
-    
-    if (!S_ISDIR(fd.st_mode)){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> imPath is nor directory\n");
-        return SP_CONFIG_MISSING_DIR;
-    }
-    
-    // allocating memory for destination path
-    pathSize = strlen(config->spImagesDirectory)+strlen(config->spImagesPrefix)+strlen(config->spImagesSuffix)+20;
-    if ((srcPath = (char*) malloc(pathSize*sizeof(char))) == NULL) {
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> memory allocation failed\n");
-        return SP_CONFIG_ALLOC_FAIL;
-    }
-    
-    // creating the dest. path string
-    strcat(srcPath, config->spImagesDirectory);
-    strcat(srcPath, "/");
-    strcat(srcPath, config->spPcaFilename);
-    
-    // open the files for read /write
-    if ((src = fopen(srcPath, "rb")) == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> open copy source path failure\n");
-        return SP_CONFIG_CANNOT_OPEN_FILE;
-    }
-    
-    if ((dst = fopen(pcaPath, "wb")) == NULL){
-        PDEBUG("[ERROR][CONFIG] <spConfigGetImagePath> open copy destination path failure\n");
-        return SP_CONFIG_CANNOT_OPEN_FILE;
-    }
-    
-    // copy files
-    while ((size = fread(buff, 1, 1024, src))){
-        if (fwrite(buff,1,1024,dst) !=1024){
-            PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> copying files failure - write less than 1024 bytes\n");
-            return SP_CONFIG_CANNOT_COPY_FILE;
-        }
-    }
-    
-    fclose(dst);
-    fclose(src);
-    free(srcPath);
-    
+     _D printf("DEBUG: pcaPath: [%s]\n",config->spPcaFilename);
+    sprintf(pcaPath,"%s%s",config->spImagesDirectory,config->spPcaFilename);
+    _D printf("DEBUG: pcaPath: [%s]\n",pcaPath);
     return SP_CONFIG_SUCCESS;
 }
 
@@ -1074,80 +944,80 @@ SP_CONFIG_MSG spConfigGetPCAPath(char* pcaPath, const SPConfig config) {
 /* Returns the KDTree split method - RANDOM, MAX_SPREAD, INCREMENTAL, i.e
  * the spKDTreeSplitMethod variable.*/
 splitMethod spConfigGetSplitMethod(SPConfig config,  SP_CONFIG_MSG* msg) {
-    
+
     if (config == NULL){
         PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> config null pointer\n");
         *msg = SP_CONFIG_INVALID_ARGUMENT;
         return RANDOM;
     }
-    
+
     *msg = SP_CONFIG_SUCCESS;
-    
+
     return config->spKDTreeSplitMethod;
 }
 
 
 /* The function stores in prefix string the image prefix as extracted from the configuration file. */
 SP_CONFIG_MSG spConfigGetImagesPrefix(char* prefix, SPConfig config) {
-    
+
     prefix = NULL;
-    
+
     if (config == NULL){
         PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> config null pointer\n");
         return SP_CONFIG_INVALID_ARGUMENT;
     }
-    
+
     if (config->spImagesPrefix == NULL){
         PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> images prefix is not configured\n");
         return SP_CONFIG_MISSING_PREFIX;
     }
-    
+
     prefix = config->spImagesPrefix;
-    
+
     return SP_CONFIG_SUCCESS;
 }
 
 
 /* The function stores in suffix string the image suffix as extracted from the configuration file. */
 SP_CONFIG_MSG spConfigGetImagesSuffix(char* suffix, SPConfig config) {
-    
+
     suffix = NULL;
-    
+
     if (config == NULL){
         PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> config null pointer\n");
         return SP_CONFIG_INVALID_ARGUMENT;
     }
-    
+
     if (config->spImagesPrefix == NULL){
         PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> images suffix is not configured\n");
         return SP_CONFIG_MISSING_SUFFIX;
     }
-    
+
     suffix = config->spImagesSuffix;
-    
+
     return SP_CONFIG_SUCCESS;
 }
 
 
 /* Frees all memory resources associate with config. */
 void spConfigDestroy(SPConfig config) {
-    
+
     if (config == NULL) {
         PDEBUG("[ERROR][CONFIG] <spConfigGetPCAPath> config null pointer\n");
         return;
     }
-    
+
     free(config->spImagesDirectory);
     free(config->spImagesPrefix);
     free(config->spImagesSuffix);
     free(config->spPcaFilename);
     free(config->spLoggerFilename);
     free(config);
-    
+
 }
 
 
-    
+
 /* Splits string with respect to delimiter -
  * On a given string with delimiter the function will split the string into dynamic
  * sring array. The function can handle concequentive delimiter string.
@@ -1175,12 +1045,12 @@ char** str_split(char* a_str, const char a_delim)
     char*   tmp         = a_str;
     char*   last_comma  = 0;
     char    delim[2];
-    
+
     delim[0]    = a_delim;
     delim[1]    = 0;
-    
+
     /* Count how many elements will be extracted. */
-    
+
     while (*tmp)
     {
         if (a_delim == *tmp)
@@ -1189,26 +1059,26 @@ char** str_split(char* a_str, const char a_delim)
                 if ((tmp -last_comma) != 1) // in case it's not sequencal commas - count it
                     count++;
             // if it's the first char don't count it
-            
+
             last_comma = tmp;
         }
         tmp++;
     }
-    
+
     /* Add space for trailing token. */
     count += last_comma < (a_str + strlen(a_str) - 1);
-    
+
     /* Add space for terminating null string so caller
      knows where the list of returned strings ends. */
     count++;
-    
+
     result = malloc(sizeof(char*) * count);
-    
+
     if (result)
     {
         size_t idx  = 0;
         char* token = strtok(a_str, delim);
-        
+
         while (token)
         {
             if(idx < count)
@@ -1226,7 +1096,7 @@ char** str_split(char* a_str, const char a_delim)
         }
         *(result + idx) = 0;
     }
-    
+
     return result;
 }
 
@@ -1257,33 +1127,33 @@ void removeWhiteSpaces(char* str)
 }
 
 
-SPConfig spConfigCreateManually(char* spImagesDirectory, char* spImagesPrefix, char*spImagesSuffix, int spNumOfImages,  int spNumOfFeatures, bool spExtractionMode, int spNumOfSimilarImages, splitMethod  spKDTreeSplitMethod , int spKNN, bool spMinimalGUI, int spLoggerLevel, char* spLoggerFilename, SP_CONFIG_MSG* msg) {
-    
+SPConfig spConfigCreateManually(SP_CONFIG_MSG* msg){
     SPConfig result;
-    
+
     if ((result = (SPConfig) malloc(sizeof(*result))) == NULL)
     {
         PDEBUG("ERROR : Allocation failed\n");
         return NULL;
     }
-    
-    result->spImagesDirectory   = spImagesDirectory;
-    result->spImagesPrefix      = spImagesPrefix;
-    result->spImagesSuffix      = spImagesSuffix;
-    result->spNumOfImages       = spNumOfImages;
-    result->spNumOfFeatures     = spNumOfFeatures;
-    result->spExtractionMode    = spExtractionMode;
-    result->spNumOfSimilarImages= spNumOfSimilarImages;
-    result->spKDTreeSplitMethod = spKDTreeSplitMethod;
-    result->spKNN               = spKNN;
-    result->spMinimalGUI        = spMinimalGUI;
-    result->spLoggerLevel       = spLoggerLevel;
-    result->spLoggerFilename    = spLoggerFilename;
+
+    result->spImagesDirectory   = "/specific/a/home/cc/students/cs/barangel/Desktop/Software_Project/FinalProject/images/";
+    result->spImagesPrefix      = "img";
+    result->spImagesSuffix      = ".png";
+    result->spNumOfImages       = 5;
+    result->spNumOfFeatures     = 5;
+    result->spExtractionMode    = true;
+    result->spNumOfSimilarImages= 4;
+    result->spKDTreeSplitMethod = RANDOM;
+    result->spKNN               = 4;
+    result->spMinimalGUI        = false;
+    result->spLoggerLevel       = 1;
+    result->spLoggerFilename    = "log.log";
+    result->spPcaFilename       = "pca.yml";
+    result->spPCADimension      = 4;
     *msg = SP_CONFIG_SUCCESS;
-    
+
     return result;
 }
-
 
 void initializing_SPConfig(SPConfig spconfig) {
     spconfig->spNumOfImages = -1 ;
@@ -1292,41 +1162,41 @@ void initializing_SPConfig(SPConfig spconfig) {
     spconfig->spNumOfSimilarImages = -1;
     spconfig->spKNN = -1;
     spconfig->spLoggerLevel = -1;
-    
+
     spconfig->spImagesDirectory = NULL;
     spconfig->spImagesPrefix = NULL;
     spconfig->spImagesSuffix = NULL;
     spconfig->spPcaFilename = NULL;
     spconfig->spLoggerFilename = NULL;
-    
+
     spconfig->spKDTreeSplitMethod = -1;
-    
+
     for (int i =0 ; i < 5; i++)
         spconfig->assignArr[i] = 0;
-    
+
 }
 
 
 void free_spconfig(SPConfig spconfig) {
-    
+
     if (spconfig->assignArr[0] == 1)
         free(spconfig->spImagesDirectory);
-    
+
     if (spconfig->assignArr[1] == 1)
         free(spconfig->spImagesPrefix);
-    
+
     if (spconfig->assignArr[2] == 1)
         free(spconfig->spImagesSuffix);
-    
+
     if (spconfig->assignArr[3] == 1)
         free(spconfig->spPcaFilename);
-    
+
     if (spconfig->assignArr[4] == 1)
         free(spconfig->spLoggerFilename);
-    
+
 }
 void free_splited(char** strArr) {
-    
+
     for (int length = sizeof(strArr)/sizeof(char*), i =0 ; i<length ; i++)
         free(*(strArr+i));
     free(strArr);
@@ -1334,4 +1204,44 @@ void free_splited(char** strArr) {
 
 
 
+int spConfigGetSPKNN(const SPConfig config, SP_CONFIG_MSG* msg){
+	PDEBUG(">");
+	if (config == NULL) {
+		*msg = SP_CONFIG_INVALID_ARGUMENT;
+		return false;
+	}
+	*msg = SP_CONFIG_SUCCESS;
+	return config->spKNN;
+}
 
+SP_CONFIG_MSG spConfigGetFeatFilePath(char fullPath[], SPConfig config, int index, char* suffix){
+    if(config == NULL){
+        PDEBUG("null pointer was sent as parameter 'config");
+        return SP_CONFIG_SUCCESS; //TODO: fix;
+    }
+    if(index >= config->spNumOfImages){
+        PDEBUG("invalid index")
+        return SP_CONFIG_SUCCESS; //TODO: fix;
+    }
+    sprintf(fullPath,"%s%s%d%s",config->spImagesDirectory,config->spImagesPrefix,index,suffix);
+     return SP_CONFIG_SUCCESS;
+}
+
+int spConfigGetNumOfSimilarImages(const SPConfig config, SP_CONFIG_MSG* msg){
+	PDEBUG(">");
+	if (config == NULL) {
+		*msg = SP_CONFIG_INVALID_ARGUMENT;
+		return false;
+	}
+	*msg = SP_CONFIG_SUCCESS;
+	return config->spNumOfSimilarImages;
+}
+
+bool spConfigMinimalGui(const SPConfig config, SP_CONFIG_MSG* msg){
+	if (config == NULL) {
+			*msg = SP_CONFIG_INVALID_ARGUMENT;
+			return false;
+		}
+		*msg = SP_CONFIG_SUCCESS;
+		return config->spMinimalGUI;
+}

@@ -15,6 +15,4 @@ int Query();
 
 char* QueryGetFileName();
 
-FILE* QueryGetFile();
-
 #endif /* QUERY_H_ */

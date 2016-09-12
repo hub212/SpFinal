@@ -3,6 +3,7 @@
 #include "KDArray.h"
 #include "Debug.h"
 
+
 #define MALLOC_FAIL(x) if(!(x)){ if(DEBUG) {PDEBUG("DEBUG: malloc failed");} return; }				//void
 #define MALLOC_FAIL_NULL(x) if(!(x)){ if(DEBUG) {PDEBUG("DEBUG: malloc failed");} return NULL; }	//returns null pointer
 #define MALLOC_FAIL_INT(x,y) if(!(x)){ if(DEBUG) {PDEBUG("DEBUG: malloc failed");} return (y); }	//returns integer y
@@ -44,7 +45,7 @@ int getIndexesSorted(SPPoint* arr, int size, int coor, int * res){
         arranger[i][0] = spPointGetAxisCoor(p[i],coor);
         arranger[i][1] = i;
     }
-    _D print_matrix(arranger,size,2);
+ //   _D print_matrix(arranger,size,2);
     qsort(arranger,size,sizeof(int*),matrixcmp);
     PDEBUG("sorted array");
     for(int i=0;i<size;i++){
@@ -72,10 +73,7 @@ KDArray KDAInit(SPPoint* arr, int size){
     MALLOC_FAIL_NULL(kdarray)
     if(size == 0){
     	PDEBUG("null pointer returned.");
-    	kdarray->dimension = 0;
         kdarray->mat = NULL;
-        kdarray->points = NULL;
-        kdarray->size = 0;
         return kdarray; //TODO: Check this result!
     }
 
@@ -86,98 +84,70 @@ KDArray KDAInit(SPPoint* arr, int size){
     for(int i=0;i<dim;i++){
         dimMatrix[i] = (int*)malloc(size * sizeof(int));
         MALLOC_FAIL_NULL(dimMatrix[i])
-        if(size > 1){
-        	sortRes=getIndexesSorted(arr, size ,i,dimMatrix[i]);
-        	PDEBUG("all fine here1")
-			if (sortRes != 0) {
-				PDEBUG("sorting failed.");
-				//TODO: memory leak?
-				return NULL;
-			}
-		}else{
-			dimMatrix[i][0] = spPointGetAxisCoor(arr[0],i);
-		}
-
-
+        sortRes=getIndexesSorted(arr, size ,i,dimMatrix[i]);
+        if(sortRes != 0){
+        	PDEBUG("sorting failed.");
+        	//TODO: memory leak?
+        	return NULL;
+        }
     }
+
     kdarray->mat = dimMatrix;
     kdarray->dimension = dim;
     kdarray->size = size;
     kdarray->points = arr;
 
     if(DEBUG){
-    	print_kdarray(kdarray);
+    	//print_kdarray(kdarray);
     }
+PDEBUG("__was here too");
     return kdarray;
 }
 
-/*
- * if the size of the kdArr is 0 - both kdLeft and kdRight get NULL
- * if the size of the kdArr is 1 - kdLeft copies kdArr and kdRight = NULL.
- */
+
 int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
 	PDEBUG("Splitting KDArray.");
     if(kdArr == NULL){
     	PDEBUG("null pointer was sent in argument kdArr. ");
-    	*kdLeft = NULL;
-    	*kdRight = NULL;
         return -1;
     }
     if(coor >= kdArr->dimension){
-        *kdLeft = NULL;
-    	*kdRight = NULL;
     	PDEBUG("'coor' is invalid.")
     	return -1;
     }
 
 
+
+
     int size = kdArr->size;
 
-    if(size == 0){
-    	*kdLeft = NULL;
-    	*kdRight = NULL;
-    	return 1;
-    }
-    if(size == 1){
-    	KDArray copykda = (KDArray)malloc(sizeof(*copykda));
-    	copykda->dimension = kdArr->dimension;
-    	copykda->size = size;
-    	SPPoint* copyptsArr = (SPPoint*)malloc(sizeof(SPPoint)*size);
-    	for(int i=0;i< size;i++)
-    		copyptsArr[i] = kdArr->points[i];
-    	int** copymat = (int**)malloc(sizeof(int*)*copykda->dimension);
-    	for(int i=0;i<copykda->dimension;i++){
-    		copymat[i] = (int*)malloc(sizeof(int)*size);
-    		for(int j=0;j<size;j++)
-    			copymat[i][j] = kdArr->mat[i][j];
-    	}
-    	copykda->points = copyptsArr;
-    	copykda->mat = copymat;
-    	*kdLeft = copykda;
-    	*kdRight = NULL;
-    	return 1;
-    }
-
-    //if size > 1:
     int* arrangement = kdArr->mat[coor];
     int ptsOnLeft = size%2==0 ? size/2 : (size+1)/2;
+
+     PDEBUG("\t\tTHis is ME")
+    _D printf("size: %d points: %d\n", size,ptsOnLeft);
 
     int* X = (int*)malloc(sizeof(int)*size);
     MALLOC_FAIL_INT(X,-1)
     for(int i=0;i<size;i++)
     	X[i] = 1;
-
-    for(int i=0;i<ptsOnLeft;i++)
+PDEBUG("\t\tTHis is ME again")
+    for(int i=0;i<ptsOnLeft;i++){
+        _D printf("arrangement[%d] = %d", i, arrangement[i]);
     	*(X+arrangement[i]) = 0;
+    }
+
+
 
     SPPoint *left = (SPPoint*)malloc(sizeof(SPPoint)*ptsOnLeft);
     SPPoint *right = (SPPoint*)malloc(sizeof(SPPoint)*(size-ptsOnLeft));
-    int *map1 = (int*)malloc(sizeof(int)*size);
-    int *map2 = (int*)malloc(sizeof(int)*size);
+    int *map1 = (int*)malloc(sizeof(int)*ptsOnLeft);
+    int *map2 = (int*)malloc(sizeof(int)*(size-ptsOnLeft));
     MALLOC_FAIL_INT(left,-1)
     MALLOC_FAIL_INT(right,-1)
 	MALLOC_FAIL_INT(map1,-1)
 	MALLOC_FAIL_INT(map2,-1)
+
 
 	 int dim = kdArr->dimension;
 	 int** lMatrix = NULL;
@@ -206,30 +176,31 @@ int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
 	}
 
 
-	 int ** kdmat = kdArr->mat;
 	 for(int i=0;i<dim;i++){
 	  	lMatrix[i] = (int*)malloc(ptsOnLeft * sizeof(int));
 	  	rMatrix[i] = (int*)malloc((size-ptsOnLeft) * sizeof(int));
 	   	MALLOC_FAIL_INT(lMatrix[i],-1)
 	  	MALLOC_FAIL_INT(rMatrix[i],-1)
 
-	  	li=0; ri=0;
-        for(int j=0;j<size;j++){
-            if(map1[kdmat[i][j]] >= 0){
-                lMatrix[i][li] = map1[kdmat[i][j]];
+
+		li=0; ri=0;
+	   	//TODO: The calculations here are probably incorrect. Need to be checked.
+		for(int j=0;j<size;j++){
+			if(j < ptsOnLeft){
+				lMatrix[i][li] = map1[kdArr->mat[i][j]];
 				li++;
-            }else if(map2[kdmat[i][j]] >= 0){
-                rMatrix[i][ri] = map2[kdmat[i][j]];
+			}else{
+				rMatrix[i][ri] = map2[kdArr->mat[i][j]];
 				ri++;
-            }else{
-               PDEBUG("something went wrong")
-            }
-        }
+			}
+		}
 	 }
+
+	 PDEBUG("\t\t>>>>>>>>>>>>>>THis is ME again and so on..")
+
 	 KDArray leftkda,rightkda;
 	 leftkda = (KDArray)malloc(sizeof(struct kdarray_t));
 	 rightkda = (KDArray)malloc(sizeof(struct kdarray_t));
-
 	 leftkda->dimension = dim;
 	 leftkda->size = ptsOnLeft;
 	 leftkda->points = left;
@@ -241,18 +212,21 @@ int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
 	 rightkda->points = right;
 	 rightkda->mat = rMatrix;
 
+
 	*kdLeft = leftkda;
 	*kdRight = rightkda;
 
 	if(DEBUG){
-	//	PDEBUG("splitted into:")
-	//	print_kdarray(*kdLeft);
-	//	printf("and:\n");
+		PDEBUG("splitted into:")
+		//print_kdarray(*kdLeft);
+		//printf("and:\n");
 		//print_kdarray(*kdRight);
 	}
-	free(map2);
-	free(map1);
+
+	//free(map2); //TODO: these memory-freeing cause an error for some reason.
+	//free(map1);
 	free(X);
+
 	return 1;
 }
 
@@ -280,18 +254,12 @@ void print_matrix(int** mat, int rows, int cols){
 
 void print_kdarray(KDArray kdarray){
 	printf("DEBUG: (KDAInit) Returned kdarray:\ndimention: %d\nsize: %d\n points:\n",kdarray->dimension,kdarray->size);
-	if(kdarray->size == 0){
-        PDEBUG("empty KDArray.")
-        return;
-	}
 	for(int i=0;i<kdarray->size;i++)
 		printPoint(kdarray->points[i]);
 	printf("matrix: \n");
 	print_matrix(kdarray->mat, kdarray->dimension,kdarray->size);
-	printf("========\n");
 }
 
-/* destroys also the SPPoints in the kdarray */
 void KDADestroy(KDArray kdArr){
 	if(kdArr == NULL)
 		return;
@@ -300,17 +268,13 @@ void KDADestroy(KDArray kdArr){
 	free(kdArr->points);
 
 	for(int i=0;i<kdArr->dimension;i++)
-		free(kdArr->mat[i]);
+		free((kdArr->mat[i]));
 	free(kdArr->mat);
 	free(kdArr);
 }
-
-
-/* Does not destroys the SPPoints in the kdarray  */
 void KDADestroySaveSPPoints(KDArray kdArr){
 	if(kdArr == NULL)
 		return;
-
 	free(kdArr->points);
 
 	for(int i=0;i<kdArr->dimension;i++)

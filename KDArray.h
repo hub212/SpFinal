@@ -26,3 +26,6 @@ int KDAGetSize(KDArray kdArr);
 SPPoint* KDAGetPoints(KDArray kdArr);
 
 int** KDAGetMatrix(KDArray kdArr);
+
+
+void print_kdarray(KDArray kdarray);
