@@ -13,14 +13,6 @@
 #include "SPPoint.h"
 
 void print_point(SPPoint point);
-/** Point sturct **/
-struct sp_point_t {
-    int         dim;
-    double*     p_coor;
-    int         index;
-
-};
-
 
 /** Copy arrays **/
 void copying_arr(double* orig, double* dest, int dim){
