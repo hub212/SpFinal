@@ -19,28 +19,6 @@
 #include "Debug.h"
 
 
-struct sp_config_t {
-    int spNumOfImages;
-    int spNumOfFeatures;
-    int spPCADimension;
-    int spNumOfSimilarImages;
-    int spKNN;
-    int spLoggerLevel;
-
-    int assignArr[5];
-
-    bool spExtractionMode;
-    bool spMinimalGUI;
-
-    char* spImagesDirectory;
-    char* spImagesPrefix;
-    char* spImagesSuffix;
-    char* spPcaFilename;
-    char* spLoggerFilename;
-
-    splitMethod spKDTreeSplitMethod;
-};
-
 // functions decleration
 char** str_split(char* a_str, const char a_delim);
 void removeWhiteSpaces(char* str);
