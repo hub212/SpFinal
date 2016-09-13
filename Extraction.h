@@ -13,28 +13,6 @@
 #ifndef EXTRACTION_H_
 #define EXTRACTION_H_
 
-struct sp_config_t {
-    int spNumOfImages;
-    int spNumOfFeatures;
-    int spPCADimension;
-    int spNumOfSimilarImages;
-    int spKNN;
-    int spLoggerLevel;
-
-    int assignArr[5];
-
-    bool spExtractionMode;
-    bool spMinimalGUI;
-
-    char* spImagesDirectory;
-    char* spImagesPrefix;
-    char* spImagesSuffix;
-    char* spPcaFilename;
-    char* spLoggerFilename;
-
-    splitMethod spKDTreeSplitMethod;
-};
-
 /*
     Saves the the extracted features into file. the file will be stored in the same directory of the image, and with the same name.
 
