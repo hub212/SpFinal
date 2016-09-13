@@ -27,6 +27,14 @@ typedef enum sp_config_msg_t {
     SP_CONFIG_INVALID_CONFIG_LINE
 } SP_CONFIG_MSG;
 
+/** Point sturct **/
+struct sp_point_t {
+    int         dim;
+    double*     p_coor;
+    int         index;
+
+};
+
 typedef struct sp_config_t* SPConfig;
 
 /**
