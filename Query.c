@@ -35,7 +35,6 @@ int Query(){
     }
     strcpy(fileName,c);
     fclose(f);
-    free(f);
 	return 1;
 }
 

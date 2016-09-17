@@ -32,6 +32,6 @@ KDTreeNode KDTNGetRightChild(KDTreeNode kdtn);
 
 bool isLeaf(KDTreeNode kdtn);
 
-int* getNearestNeighbors(KDTree kdt, SPPoint p, SPConfig config);
+int* getNearestNeighbors(KDTree kdt, SPPoint p, SPConfig config, int* knn);
 
 #endif /* KDTREE_H_ */

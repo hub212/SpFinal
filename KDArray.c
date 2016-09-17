@@ -3,11 +3,6 @@
 #include "KDArray.h"
 #include "Debug.h"
 
-#define MALLOC_FAIL(x) if(!(x)){ if(DEBUG) {PDEBUG("DEBUG: malloc failed");} return; }				//void
-#define MALLOC_FAIL_NULL(x) if(!(x)){ if(DEBUG) {PDEBUG("DEBUG: malloc failed");} return NULL; }	//returns null pointer
-#define MALLOC_FAIL_INT(x,y) if(!(x)){ if(DEBUG) {PDEBUG("DEBUG: malloc failed");} return (y); }	//returns integer y
-
-
 void printPoint(SPPoint point);
 void print_matrix(int** mat, int rows, int cols);
 void print_kdarray(KDArray kdarray);
@@ -28,16 +23,34 @@ int matrixcmp(const void * va, const void * vb){
 //TODO: DKAMatrix should be double**!
 int getIndexesSorted(SPPoint* arr, int size, int coor, int * res){
     SPPoint* p = (SPPoint*)malloc(size * sizeof(SPPoint));
-    MALLOC_FAIL_INT(p,-1);
+    if(p == NULL){
+        PDEBUG("Internal problem in function: allocation failed");
+        return ERROR_VALUE;
+    }
     for(int i=0;i<size;i++)
         p[i] = spPointCopy(arr[i]);
 
 
     int ** arranger =  (int**)malloc(size * sizeof(int*));
-    MALLOC_FAIL_INT(arranger,-1);
+    if(arranger == NULL){
+        PDEBUG("Internal problem in function: allocation failed");
+        for(int i=0;i<size;i++)
+            spPointDestroy(p[i]);
+        free(p);
+        return ERROR_VALUE;
+    }
     for(int i=0;i<size;i++){
         arranger[i] = (int*)malloc(2 * sizeof(int));
-        MALLOC_FAIL_INT(arranger[i],-1);
+        if(arranger[i] == NULL){
+            PDEBUG("Internal problem in function: allocation failed");
+            for(int i=0;i<size;i++)
+                spPointDestroy(p[i]);
+            free(p);
+            for(int j=0;j<i;i++)
+                free(arranger[j]);
+            free(arranger);
+            return ERROR_VALUE;
+        }
     }
 
     for(int i=0;i<size;i++){

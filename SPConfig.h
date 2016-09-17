@@ -233,4 +233,8 @@ SPConfig spConfigCreateManually(SP_CONFIG_MSG* msg);
 
 SP_CONFIG_MSG spConfigGetFeatFilePath(char fullPath[], SPConfig config, int index, char* suffix);
 
+SP_CONFIG_MSG spConfigGetLogFilename(char* loggerFileName, SPConfig config);
+
+int spConfigGetLoggerLevel(SPConfig config, SP_CONFIG_MSG* msg);
+
 #endif /* SPCONFIG_H_ */
