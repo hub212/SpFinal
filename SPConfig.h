@@ -255,4 +255,5 @@ SPConfig spConfigCreateManually(SP_CONFIG_MSG* msg);
 
 SP_CONFIG_MSG spConfigGetFeatFilePath(char fullPath[], SPConfig config, int index, char* suffix);
 
+void free_spconfig(SPConfig spconfig);
 #endif /* SPCONFIG_H_ */
