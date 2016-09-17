@@ -5,14 +5,15 @@
 //  Created by Shlomi Zabari on 5/25/16.
 //  Copyright (c) 2016 Shlomi Zabari. All rights reserved.
 //
-#define DEBUG 0
 
+#define DEBUG 1
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include "SPPoint.h"
 
 void print_point(SPPoint point);
+
 
 /** Copy arrays **/
 void copying_arr(double* orig, double* dest, int dim){
