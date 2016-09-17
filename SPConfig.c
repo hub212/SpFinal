@@ -15,25 +15,29 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <math.h>
 #include "SPConfig.h"
 #include "Debug.h"
 
 
 // functions decleration
-char** str_split(char* a_str, const char a_delim);
-void removeWhiteSpaces(char* str);
+char** str_split(char* a_str, const char a_delim, int* len);
+void removeWhiteSpaces(char** src);
 void initializing_SPConfig(SPConfig spconfig);
-void free_splited(char** strArr);
+void free_splited(char** strArr, int len);
+void free_spconfig(SPConfig spconfig);
+void remove_newLine(char* str);
+int check_default_params(SPConfig config, const char* filename, int line_num, SP_CONFIG_MSG *msg);
 
 /* Creates a new system configuration struct. The configuration struct
  * is initialized based on the configuration file given by 'filename'.*/
 SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
 
     // validVarsNames - holds valid variables names
-    char*  validVarsNames[PAR_NUM]  = {"spImagesDirectory", "spImagesPrefix", "spImagesSuffix", "spNumOfImages",                     "spPCADimension","spPcaFilename", "spNumOfFeatures", "spExtractionMode", "spNumOfSimilarImages", "spKDTreeSplitMethod","spKNN"         ,"spMinimalGUI","spLoggerLevel","spLoggerFilename"};
+    char*  validVarsNames[PAR_NUM]  = {"spImagesDirectory", "spImagesPrefix", "spImagesSuffix", "spNumOfImages",                     "spPCADimension","spPCAFilename", "spNumOfFeatures", "spExtractionMode", "spNumOfSimilarImages", "spKDTreeSplitMethod","spKNN"         ,"spMinimalGUI","spLoggerLevel","spLoggerFilename"};
 
-    // intStrIndc - holds indecator for each parameter telling if it int or str (enum and bool considered as strings)
-    int     intStrIndc[PAR_NUM]     = {0,0,0,1,1,0,1,0 ,1,0,1,0,1,0};
+    // strIndc - holds indecators for each parameter telling if it's an str or not(enum and bool considered as strings)
+    int     strIndc[PAR_NUM]     = {1,1,1,0,0,1,0,1 ,0,1,0,1,0,1};
 
     char*   suffArr[NUM_SUFF] = {".jpg",".png",".bmp",".gif"};
     char*   line;
@@ -44,37 +48,27 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
     char*   tmp;
     char*   endptr;
 
-    int     count_eq;
+    int     count_eq = 0;
     int     index;
     int     suffix_int;
     int     line_num = 0;
     int     str_flag = 0;
     int     no_value = 0;
+    int     len = 0;
+    int     mw_len;
 
     long    int_val = 0;
 
     size_t  size = 1024;
     FILE*   configFile;
-    struct  stat fd;
-
+    
     SPConfig spconfig;
 
-    // checks if the file is regular
-        if (stat(filename, &fd) <0){
-            PDEBUG("[ERROR][CONFIG] <spConfigCreate> failure while trying to access filename\n");
-            *msg = SP_CONFIG_INVALID_ARGUMENT;
-            return NULL;
-        }
-
-    if (!S_ISREG(fd.st_mode)){
-        PDEBUG("[ERROR][CONFIG] <spConfigCreate> filename is not a regular file\n");
-        *msg = SP_CONFIG_INVALID_ARGUMENT;
-        return NULL;
-    }
 
     // open the files for read
     if ((configFile = fopen(filename, "rb")) == NULL){
         PDEBUG("[ERROR][CONFIG] <spConfigCreate> open copy source path failure\n");
+        printf("[ERROR] %s filename can't be opened\n", filename);
         *msg = SP_CONFIG_CANNOT_OPEN_FILE;
         return NULL;
     }
@@ -117,10 +111,20 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
     // TODO - free
 
     // reading all file
-    while (getline(&line, &size, configFile) != -1) {
+    while ((len = (int) getline(&line, &size, configFile))!= -1) {
+        
+        PDEBUG("[CONFIG] new line: -----------------------");
+        printf("%s\n\n",line);
+        
+        if (line == NULL) {
+            PDEBUG("[CONFIG] error was occure while trying to get new line");
+            *msg = SP_CONFIG_ALLOC_FAIL;
+            return NULL;
+        }
         
         line_num++;
         str_flag = 0;
+        count_eq = 0;
         errno = 0;
 
         // ignore leading whitespace
@@ -149,20 +153,20 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                 // free all
                 fclose(configFile);
                 free(line);
-                free(spconfig);
+                free_spconfig(spconfig);
                 return NULL;
             }
             tmp++;
         }
 
         // making a line copy for debug - first allocting pepory
-        if((line_cpy = (char*) malloc(sizeof(char)*(strlen(line)+2))) == NULL) {
+        if((line_cpy = (char*) malloc(sizeof(char)*(len+2))) == NULL) {
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> original line copy memory allocation failed");
             *msg = SP_CONFIG_ALLOC_FAIL;
             // free all
             fclose(configFile);
             free(line);
-            free(spconfig);
+            free_spconfig(spconfig);
             return NULL;
         }
 
@@ -170,34 +174,35 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
         strcpy(line_cpy,line);
 
         // Split with respect to '='  - check if legal (line no longer contains the current line - only the copy)
-        if ((splited_line = (char**) str_split(line, '=')) == NULL) {
+        if ((splited_line = (char**) str_split(line, '=', &len)) == NULL) {
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> couldn't split line with respect to '=' , line:");
-            PDEBUG(line);
+            PDEBUG(line_cpy);
             // free all
             fclose(configFile);
             free(line);
-            free(spconfig);
+            free_spconfig(spconfig);
             free(line_cpy);
             *msg = SP_CONFIG_INVALID_CONFIG_LINE;
             return NULL;
         }
-
+        
+        
         // sanity check should have two parts only
-        if ((sizeof(splited_line)/sizeof(char*)) > 2) {
+        if (len > 2) {
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> more than one '=' where found (sanity check failure - Programming error), line:");
-            PDEBUG(line);
+            PDEBUG(line_cpy);
             PDEBUG("splited line:");
-            for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
-                PDEBUG(*(splited_line+i));
+            for (int i = 0 ; i< len ; i++) {
+                PDEBUG(splited_line[i]);
             }
             printf("File: %s\nLine: %0d\nMessage: Invalid configuration line\n",filename,line_num);
             *msg = SP_CONFIG_INVALID_CONFIG_LINE;
             // free all
             fclose(configFile);
             free(line);
-            free(spconfig);
+            free_spconfig(spconfig);
             free(line_cpy);
-            free_splited(splited_line);
+            free_splited(splited_line, len);
             return NULL;
         }
 
@@ -208,18 +213,18 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
             // free all
             fclose(configFile);
             free(line);
-            free(spconfig);
+            free_spconfig(spconfig);
             free(line_cpy);
-            free_splited(splited_line);
+            free_splited(splited_line, len);
             return NULL;
         }
         strcpy(valueStrCpy, splited_line[1]);
-        mid_white = str_split(valueStrCpy, ' ');
-        if (sizeof(mid_white)/sizeof(char*) != 1) { // whiteSpace in the mid of the word
+        mid_white = str_split(valueStrCpy, ' ', &mw_len);
+        if (mw_len != 1) { // whiteSpace in the mid of the word
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> whitespace in the middle of the value string, line:");
-            PDEBUG(line);
+            PDEBUG(line_cpy);
             PDEBUG("splited line:");
-            for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
+            for (int i = 0 ; i< len ; i++) {
                 PDEBUG(*(splited_line+i));
             }
             printf("File: %s\nLine: %0d\nMessage: Invalid value - constraint not met\n",filename,line_num);
@@ -229,41 +234,40 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
             // free all
             fclose(configFile);
             free(line);
-            free(spconfig);
+            free_spconfig(spconfig);
             free(line_cpy);
-            free_splited(splited_line);
-            free_splited(mid_white);
+            free_splited(splited_line, len);
+            free_splited(mid_white, mw_len);
             free(valueStrCpy);
             return NULL;
         }
 
         // free value whitspace helpers allocation
-        free_splited(mid_white);
+        free_splited(mid_white, mw_len);
         free(valueStrCpy);
 
 
         PDEBUG("[CONFIG] <spConfigCreate> removing white sapces from lines:");
         // remove all whitespaces from line
         for (int i = 0 ; i<2 ; i++) {
-            removeWhiteSpaces(splited_line[i]);
-            PDEBUG(splited_line[i]);
+            removeWhiteSpaces(&splited_line[i]);
         }
 
         PDEBUG("[CONFIG] finding parameter:");
         // find the right parameter (if legal)
         for(index=0; index<PAR_NUM; index++) {
-            if(strcmp(*splited_line, validVarsNames[index])) {
+            if(strcmp(*splited_line, validVarsNames[index]) == 0) {
                 PDEBUG(validVarsNames[index]);
-                continue;
+                break;
             }
         }
 
         // check for type
         if (index==PAR_NUM) {
             PDEBUG("[ERROR][CONFIG] <spConfigCreate> can't find parameter, line:");
-            PDEBUG(line);
+            PDEBUG(line_cpy);
             PDEBUG("splited line:");
-            for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
+            for (int i = 0 ; i< len ; i++) {
                 PDEBUG(*(splited_line+i));
             }
             printf("File: %s\nLine: %0d\nMessage: Invalid configuration line\n",filename,line_num);
@@ -271,20 +275,21 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
             // free all
             fclose(configFile);
             free(line);
-            free(spconfig);
+            free_spconfig(spconfig);
             free(line_cpy);
-            free_splited(splited_line);
-            free_splited(mid_white);
-            free(valueStrCpy);
+            free_splited(splited_line, len);
             return NULL;
         }
 
         // if we got here - the param is valid - checking if value exists
-        if (strcmp(splited_line[1],""))
+        if (strcmp(splited_line[1],"") == 0)
             no_value = 1;
 
+        // removing newline
+        remove_newLine(splited_line[1]);
         // check type - assign str_flag to 0 or 1
-        str_flag = intStrIndc[index];
+                       
+        str_flag = strIndc[index];
 
         if (str_flag) { // the var should be valid string type parameter
 
@@ -292,42 +297,38 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                 case 0: // spImageDirectory - string with no spaces (the spaces terminated before)
                 {
                     if (no_value) {
-                        printf("File: %s\nLine: %0d\nMessage: Parameter %s is not set",filename,line_num,splited_line[0]);
+                        printf("File: %s\nLine: %0d\nMessage: Parameter %s is not set\n",filename,line_num,splited_line[0]);
                         // constraints - pos. int.
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> spNUMOfFeatures - no value for none defaultive parameter");
                         *msg = SP_CONFIG_INVALID_CONFIG_LINE;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
 
                     // allocating memory for buffer reading
-                    if ((spconfig->spImagesDirectory = (char*) malloc(strlen(splited_line[1]+2)*sizeof(char))) == NULL) {
+                    if ((spconfig->spImagesDirectory = (char*) malloc((strlen(splited_line[1])+2)*sizeof(char))) == NULL) {
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> intial read line memory allocation failed, line:");
-                        PDEBUG(line);
+                        PDEBUG(line_cpy);
                         PDEBUG("splited line:");
-                        for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
+                        for (int i = 0 ; i<len ; i++) {
                             PDEBUG(*(splited_line+i));
                         }
                         *msg = SP_CONFIG_ALLOC_FAIL;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
 
-                    strcpy(spconfig->spImagesDirectory,splited_line[1]);
+                    spconfig->spImagesDirectory = strcpy(spconfig->spImagesDirectory,splited_line[1]);
                     spconfig->assignArr[0] = 1; // marking allocation
 
                     break;
@@ -335,38 +336,34 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                 case 1: // spImagesPrefix - no spaces string
                 {
                     if (no_value) {
-                        printf("File: %s\nLine: %0d\nMessage: Parameter %s is not set",filename,line_num,splited_line[0]);
+                        printf("File: %s\nLine: %0d\nMessage: Parameter %s is not set\n",filename,line_num,splited_line[0]);
                         // constraints - pos. int.
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> spNUMOfFeatures - no value for none defaultive parameter");
                         *msg = SP_CONFIG_INVALID_CONFIG_LINE;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
 
                     // allocating memory for copy buffer
-                    if ((spconfig->spImagesPrefix = (char*) malloc(strlen(splited_line[1]+2)*sizeof(char))) == NULL) {
+                    if ((spconfig->spImagesPrefix = (char*) malloc((strlen(splited_line[1])+2)*sizeof(char))) == NULL) {
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> intial read line memory allocation failed, line:");
-                        PDEBUG(line);
+                        PDEBUG(line_cpy);
                         PDEBUG("splited line:");
-                        for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
+                        for (int i = 0 ; i<len ; i++) {
                             PDEBUG(*(splited_line+i));
                         }
                         *msg = SP_CONFIG_ALLOC_FAIL;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
 
@@ -385,33 +382,29 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
 
                     for (suffix_int=0; suffix_int<NUM_SUFF ; suffix_int++ ) { // suffix loop
                         if (strcasecmp(suffArr[suffix_int],splited_line[1])==0) {
                             // allocating memory for copy buffer
-                            if ((spconfig->spImagesSuffix = (char*) malloc(strlen(splited_line[1]+2)*sizeof(char))) == NULL) {
+                            if ((spconfig->spImagesSuffix = (char*) malloc((strlen(splited_line[1])+2)*sizeof(char))) == NULL) {
                                 PDEBUG("[ERROR][CONFIG] <spConfigCreate> intial read line memory allocation failed, line:");
-                                PDEBUG(line);
+                                PDEBUG(line_cpy);
                                 PDEBUG("splited line:");
-                                for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
+                                for (int i = 0 ; i<len ; i++) {
                                     PDEBUG(*(splited_line+i));
                                 }
                                 *msg = SP_CONFIG_ALLOC_FAIL;
                                 // free all
                                 fclose(configFile);
                                 free(line);
-                                free(spconfig);
+                                free_spconfig(spconfig);
                                 free(line_cpy);
-                                free_splited(splited_line);
-                                free_splited(mid_white);
-                                free(valueStrCpy);
+                                free_splited(splited_line, len);
                                 return NULL;
                             }
 
@@ -423,22 +416,20 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                     } // end suffix loop
 
                     // if we got here with the last index it means we didnt match any of them
-                    if (suffix_int == (NUM_SUFF-1)) { // invalid image suffix
+                    if (suffix_int == (NUM_SUFF)) { // invalid image suffix
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> invalid suufix type, line:");
-                        PDEBUG(line);
+                        PDEBUG(line_cpy);
                         PDEBUG("splited line:");
-                        for (int j = 0 ; j<sizeof(splited_line)/sizeof(char*) ; j++) {
+                        for (int j = 0 ; j<len; j++) {
                             PDEBUG(*(splited_line+j));
                         }
                         *msg = SP_CONFIG_INVALID_CONFIG_LINE;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
                     break;
@@ -448,22 +439,20 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
 
 
                     // allocating memory for copy buffer
-                    if ((spconfig->spPcaFilename = (char*) malloc(strlen(splited_line[1]+2)*sizeof(char))) == NULL) {
+                    if ((spconfig->spPcaFilename = (char*) malloc((strlen(splited_line[1])+2)*sizeof(char))) == NULL) {
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> intial read line memory allocation failed, line:");
-                        PDEBUG(line);
+                        PDEBUG(line_cpy);
                         PDEBUG("splited line:");
-                        for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
+                        for (int i = 0 ; i<len ; i++) {
                             PDEBUG(*(splited_line+i));
                         }
                         *msg = SP_CONFIG_ALLOC_FAIL;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
 
@@ -482,51 +471,47 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                     }
                     else {
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> invalid boolean value (extractionMode), line:");
-                        PDEBUG(line);
+                        PDEBUG(line_cpy);
                         PDEBUG("splited line:");
-                        for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
+                        for (int i = 0 ; i<(int) (sizeof(splited_line)/sizeof(char*)); i++) {
                             PDEBUG(*(splited_line+i));
                         }
                         *msg = SP_CONFIG_ALLOC_FAIL;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
                     break;
                 }
                 case 9 : // spKDTreeSplitMethod - enum - {RANDOM, MAX_SPREAD, INCREMENTAL}
                 {
-                    if (strcmp("RANDOM", splited_line[1])) {
+                    if (strcmp("RANDOM", splited_line[1]) == 0) {
                         spconfig->spKDTreeSplitMethod = RANDOM;
                     }
-                    else if (strcmp("MAX_SPREAD", splited_line[1])) {
+                    else if (strcmp("MAX_SPREAD", splited_line[1]) == 0) {
                         spconfig->spKDTreeSplitMethod = MAX_SPREAD;
                     }
-                    else if (strcmp("INCREMENTAL", splited_line[1])) {
+                    else if (strcmp("INCREMENTAL", splited_line[1]) == 0) {
                         spconfig->spKDTreeSplitMethod = INCREMENTAL;
                     }
                     else { // none of the enum was found
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> invalid enum of value (KDTreeSplitMethod), line:");
-                        PDEBUG(line);
+                        PDEBUG(line_cpy);
                         PDEBUG("splited line:");
-                        for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
+                        for (int i = 0 ; i<len ; i++) {
                             PDEBUG(*(splited_line+i));
                         }
                         *msg = SP_CONFIG_ALLOC_FAIL;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
                     break;
@@ -541,20 +526,18 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                     }
                     else {
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> invalid boolean value (minimalGUI), line:");
-                        PDEBUG(line);
+                        PDEBUG(line_cpy);
                         PDEBUG("splited line:");
-                        for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
+                        for (int i = 0 ; i<len ; i++) {
                             PDEBUG(*(splited_line+i));
                         }
                         *msg = SP_CONFIG_ALLOC_FAIL;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
                     break;
@@ -562,22 +545,20 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                 case 13: // spLoggerFilename
                 {
                     // allocating memory for buffer reading
-                    if ((spconfig->spLoggerFilename = (char*) malloc(strlen(splited_line[1]+2)*sizeof(char))) == NULL) {
+                    if ((spconfig->spLoggerFilename = (char*) malloc((strlen(splited_line[1])+2)*sizeof(char))) == NULL) {
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> intial read line memory allocation failed , line:");
-                        PDEBUG(line);
+                        PDEBUG(line_cpy);
                         PDEBUG("splited line:");
-                        for (int i = 0 ; i<sizeof(splited_line)/sizeof(char*) ; i++) {
+                        for (int i = 0 ; i<len ; i++) {
                             PDEBUG(*(splited_line+i));
                         }
                         *msg = SP_CONFIG_ALLOC_FAIL;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
 
@@ -608,11 +589,9 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                     // free all
                     fclose(configFile);
                     free(line);
-                    free(spconfig);
+                    free_spconfig(spconfig);
                     free(line_cpy);
-                    free_splited(splited_line);
-                    free_splited(mid_white);
-                    free(valueStrCpy);
+                    free_splited(splited_line, len);
                     return NULL;
                 }
 
@@ -623,11 +602,9 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                     // free all
                     fclose(configFile);
                     free(line);
-                    free(spconfig);
+                    free_spconfig(spconfig);
                     free(line_cpy);
-                    free_splited(splited_line);
-                    free_splited(mid_white);
-                    free(valueStrCpy);
+                    free_splited(splited_line, len);
                     return NULL;
                 }
                 if (*endptr != 0) {
@@ -637,11 +614,9 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                     // free all
                     fclose(configFile);
                     free(line);
-                    free(spconfig);
+                    free_spconfig(spconfig);
                     free(line_cpy);
-                    free_splited(splited_line);
-                    free_splited(mid_white);
-                    free(valueStrCpy);
+                    free_splited(splited_line, len);
                     return NULL;
                 }
             }
@@ -653,18 +628,16 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                 case 3: // spNumOfImages
                 {
                     if (no_value) {
-                        printf("File: %s\nLine: %0d\nMessage: Parameter %s is not set",filename,line_num,splited_line[0]);
+                        printf("File: %s\nLine: %0d\nMessage: Parameter %s is not set\n",filename,line_num,splited_line[0]);
                         // constraints - pos. int.
                         PDEBUG("[ERROR][CONFIG] <spConfigCreate> spNUMOfFeatures - no value for none defaultive parameter");
                         *msg = SP_CONFIG_INVALID_CONFIG_LINE;
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
 
@@ -675,11 +648,9 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
                     spconfig->spNumOfImages = (int) int_val;
@@ -696,11 +667,9 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
                     spconfig->spPCADimension = (int) int_val;
@@ -717,11 +686,9 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
                     spconfig->spNumOfFeatures = (int) int_val;
@@ -738,11 +705,9 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
                     spconfig->spNumOfSimilarImages = (int) int_val;
@@ -760,11 +725,9 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
                     spconfig->spKNN = (int) int_val;
@@ -783,11 +746,9 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                         // free all
                         fclose(configFile);
                         free(line);
-                        free(spconfig);
+                        free_spconfig(spconfig);
                         free(line_cpy);
-                        free_splited(splited_line);
-                        free_splited(mid_white);
-                        free(valueStrCpy);
+                        free_splited(splited_line, len);
                         return NULL;
                     }
                     spconfig->spLoggerLevel = (int) int_val;
@@ -800,11 +761,9 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
                     // free all
                     fclose(configFile);
                     free(line);
-                    free(spconfig);
+                    free_spconfig(spconfig);
                     free(line_cpy);
-                    free_splited(splited_line);
-                    free_splited(mid_white);
-                    free(valueStrCpy);
+                    free_splited(splited_line, len);
                     return NULL;
                 }
                     break;
@@ -813,11 +772,18 @@ SPConfig spConfigCreate(const char* filename, SP_CONFIG_MSG* msg){
         } // integer params
 
         free(line_cpy); // freeing each line's copy
-        free_splited(splited_line);
+        free_splited(splited_line, len);
     } // getline loop
 
+    
     free(line); // freeing line allocation
 
+    // checking if none defaultive field missed
+    if (check_default_params(spconfig, filename, line_num, msg) == -1){
+        fclose(configFile);
+        return NULL;
+    }
+        
     *msg = SP_CONFIG_SUCCESS;
     PDEBUG("[CONFIG] <spConfigCreate> config done!\n");
 
@@ -1016,10 +982,13 @@ void spConfigDestroy(SPConfig config) {
  * @return
  * String dynamic array - str splited with respect to a_delimiter
  */
-char** str_split(char* a_str, const char a_delim)
+char** str_split(char* a_str, const char a_delim, int* len)
 {
-    char**  result      = 0;
     size_t  count       = 0;
+    size_t  idx         = 0;
+    
+    char*   token;
+    char**  result      = 0;
     char*   tmp         = a_str;
     char*   last_comma  = 0;
     char    delim[2];
@@ -1029,8 +998,13 @@ char** str_split(char* a_str, const char a_delim)
 
     /* Count how many elements will be extracted. */
 
+    //PDEBUG("[SPLIT] <str_split> inside str_split\n");
+    
+    // counting delimiter and removing 'newLine'
     while (*tmp)
     {
+
+        
         if (a_delim == *tmp)
         {
             if (tmp != a_str) // checks for the last comma addrs in case it's not the string beggining
@@ -1046,35 +1020,48 @@ char** str_split(char* a_str, const char a_delim)
     /* Add space for trailing token. */
     count += last_comma < (a_str + strlen(a_str) - 1);
 
-    /* Add space for terminating null string so caller
-     knows where the list of returned strings ends. */
-    count++;
-
+    *len = (int)count;
+    
+    
     result = malloc(sizeof(char*) * count);
+    
 
     if (result)
     {
-        size_t idx  = 0;
-        char* token = strtok(a_str, delim);
+        token = strtok(a_str, delim);
 
         while (token)
         {
-            if(idx < count)
+            if(idx >= count)
             {
              PDEBUG("[ERROR][SPLIT] <str_split> more tokens than expected\n");
+                printf("[ERROR] a_srt = %s\tdelim = %s\n",a_str, delim);
+                free(result);
                 return NULL;
             }
-            *(result + idx++) = strdup(token);
+            if ((*(result + idx++) = strdup(token)) == NULL) {
+                PDEBUG("[ERROR][SPLIT] <str_split> strdup failed\n");
+                PDEBUG("freeing splited line:");
+                for (int i = 0 ; i< idx-1 ; i++) {
+                    printf("%s\n",result[i]);
+                    free(result[i]);
+                }
+                free(result);
+                return NULL;
+            }
+            
+            //PDEBUG("[SPLIT] <str_split> after duplication:\n");
+            //printf("%s\n",result[idx-1]);
+
             token = strtok(NULL, delim);
         }
-        if(idx == count - 1)
-        {
-            PDEBUG("[ERROR][SPLIT] <str_split> one more tokens than expected\n");
-            return NULL;
-        }
-        *(result + idx) = 0;
     }
-
+    
+    //PDEBUG("splited line:");
+    //for (int i = 0 ; i<*len ; i++) {
+    //    printf("%s\n",result[i]);
+    //}
+    
     return result;
 }
 
@@ -1083,27 +1070,61 @@ char** str_split(char* a_str, const char a_delim)
  * the sring shouldn't be const or read-only.
  *
  * ****************************************************************************************
- * ***  Credit to Aaron's comment on - (base for modification)                         ***
- * ***    http://stackoverflow.com/questions/1726302/removing-spaces-from-a-string-in-c ***
+ * ***  Credit to Rachids comment on - (base for modification)                         ***
+ * ***    http://stackoverflow.com/questions/22430980/removing-spaces-from-a-string ***
  * ****************************************************************************************
  *
  * @param str - string to whitespaces to be deleted from
  * @assert (str != NULL & str is not const (not read-only)
  * @return
  */
-void removeWhiteSpaces(char* str)
+void removeWhiteSpaces(char** src)
 {
-    char* i = str;
-    char* j = str;
-    while(*j != 0)
-    {
-        *i = *j++;
-        if(isspace(*j))
-            i++;
+    int i,j;
+    char* dst = NULL;
+    char* tmp = *src;
+    int len   = (int) strlen(*src);
+    
+    i = 0;
+    j = 0;
+    
+    if ((dst = (char*) malloc(sizeof(char)*(len +1)))== NULL) {
+        printf("[ERROR] allocation failed\n");
+        return;
     }
-    *i = 0;
+    
+    while (*tmp != 0) {
+        
+        if (*tmp == ' ') {
+            tmp++;
+            continue;
+        }
+        dst[j] = *tmp;
+        tmp++;
+        j++;
+    }
+    
+    // Copying the null terminating char
+    dst[j] = 0;
+    free(*src);
+    *src = dst;
 }
 
+// remove new line charecter if exist - assuming it at the end of the string
+void remove_newLine(char* str) {
+    
+    char* tmp = str;
+    
+    while (*tmp != '\n' && *tmp != 0)
+        tmp++;
+    
+    if (*tmp == 0)
+        return;
+    
+    if (*tmp == '\n')
+        *tmp = 0;
+    return;
+}
 
 SPConfig spConfigCreateManually(SP_CONFIG_MSG* msg){
     SPConfig result;
@@ -1154,7 +1175,34 @@ void initializing_SPConfig(SPConfig spconfig) {
 
 }
 
+int check_default_params(SPConfig config, const char* filename, int line_num, SP_CONFIG_MSG *msg) {
+    if (config->spNumOfImages == -1) {
+        printf("File: %s\nLine: %0d\nMessage: Parameter spNumOfImages is not set\n",filename,line_num);
+        *msg = SP_CONFIG_MISSING_NUM_IMAGES;
+        return -1;
+    }
+    
+    if (config->spImagesDirectory == NULL) {
+        printf("File: %s\nLine: %0d\nMessage: Parameter spImagesDirectory is not set\n",filename,line_num);
+        *msg = SP_CONFIG_MISSING_DIR;
+        return -1;
+    }
+    
+    if (config->spImagesPrefix == NULL) {
+        printf("File: %s\nLine: %0d\nMessage: Parameter spImagesPrefix is not set\n",filename,line_num);
+        *msg = SP_CONFIG_MISSING_PREFIX;
+        return -1;
+    }
+    
+    if (config->spImagesSuffix == NULL) {
+        printf("File: %s\nLine: %0d\nMessage: Parameter spImagesSuffix is not set\n",filename,line_num);
+        *msg = SP_CONFIG_MISSING_SUFFIX;
+        return -1;
+    }
+    
+    return 1;
 
+}
 void free_spconfig(SPConfig spconfig) {
 
     if (spconfig->assignArr[0] == 1)
@@ -1173,9 +1221,11 @@ void free_spconfig(SPConfig spconfig) {
         free(spconfig->spLoggerFilename);
 
 }
-void free_splited(char** strArr) {
 
-    for (int length = sizeof(strArr)/sizeof(char*), i =0 ; i<length ; i++)
+void free_splited(char** strArr, int
+                  len) {
+
+    for (int i =0 ; i<len ; i++)
         free(*(strArr+i));
     free(strArr);
 }
