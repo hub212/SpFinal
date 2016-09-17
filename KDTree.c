@@ -10,13 +10,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-//#define MALLOC_FAIL(x) if(!(x)){ return; }				//void
-//#define MALLOC_FAIL_NULL(x) if(!(x)){ return NULL; }	//returns null pointer
-//#define MALLOC_FAIL_INT(x,y) if(!(x)){ return (y); }	//returns integer y
 
 #define INVALID -1
 
-//#define IF_ERROR_EXIT(x) if((x) != SP_CONFIG_SUCCESS){  PDEBUG("last called method did not success"); return NULL; }
 
 struct kdtree_node_t{
 	int dim;
@@ -70,7 +66,14 @@ KDTree KDTInit(SPPoint* arr, int size, splitMethod spKDTreeSplitMethod){ //TODO:
 		return NULL;
 	}
 	KDArray kda = KDAInit(arr,size);
+	if(kda == NULL)
+        return NULL;
 	KDTree kdt = (KDTree)malloc(sizeof(*kdt));
+	if(kdt == NULL){
+            PDEBUG("malloc failture");
+        KDADestroySaveSPPoints(kda);
+        return NULL;
+	}
 	kdt->head = BuildTreeFromKDArray(kda,spKDTreeSplitMethod);
 	KDADestroySaveSPPoints(kda);
 	PDEBUG("FINISH Initilizing KDTree")
@@ -78,12 +81,15 @@ KDTree KDTInit(SPPoint* arr, int size, splitMethod spKDTreeSplitMethod){ //TODO:
 }
 
 KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod){
-	PDEBUG(">")
 	if(kda == NULL){
 		PDEBUG("null pointer was sent as argument 'kda'");
 		return NULL;
 	}
 	KDTreeNode kdtnode = (KDTreeNode)malloc(sizeof(*kdtnode));
+	if(kdtnode == NULL){
+             PDEBUG("malloc failture");
+        return NULL;
+	}
 	if(KDAGetSize(kda) == 1){
 		kdtnode->dim = INVALID;
 		kdtnode->val = INVALID;
@@ -130,7 +136,6 @@ KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod){
         kdtnode->right = NULL;
 	kdtnode->data = NULL;
 
-	PDEBUG("here by now")
 
 	KDADestroySaveSPPoints(leftKda);
 	KDADestroySaveSPPoints(rightKda);
@@ -215,6 +220,10 @@ int* getNearestNeighbors(KDTree kdt, SPPoint p, SPConfig config, int* knn){
 	nearestNeighborsAux(kdt->head,bpq,p);
 
 	nearest = (int*)malloc(sizeof(int)*(*knn));
+	if(nearest == NULL){
+            PDEBUG("malloc failture");
+        return NULL;
+	}
 	SPListElement temp;
 	for(int i=0;i<*knn;i++){
 		temp = spBPQueuePeek(bpq);

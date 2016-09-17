@@ -32,20 +32,22 @@ int saveExtractedFeatures(SPConfig config ,SPPoint* feats, int count){
         return 0;
 
     int index = spPointGetIndex(feats[0]);
-    char filename[256];
+    char filename[STR_MAX];
 
 
 
     SP_CONFIG_MSG msg = spConfigGetFeatFilePath(filename,config,index,FEATS_EXTINTION);
 
-    IF_ERROR_EXIT(msg);
+   if(msg != SP_CONFIG_SUCCESS){
+        PDEBUG("last method failed.")
+        return ERROR_VALUE;
+    }
 
 
     FILE* f = fopen(filename,"w");
     if(f == NULL){
         PDEBUG("the file could not be opened");
-        LOG_WRITE_ERROR("the file could not be opened");
-        return -1;
+        return ERROR_VALUE;
     }
     fprintf(f,"%d %d\n",count,index);
     for(int i=0;i<count;i++){
@@ -77,43 +79,58 @@ int getExtractedFeatures(SPConfig config, int indexOfImage ,SPPoint** pfeats) {
     if(indexOfImage >= spConfigGetNumOfImages(config,&msg) || indexOfImage < 0)
         return -1;
 
-     char filename[256];
+     char filename[STR_MAX];
 
     msg = spConfigGetFeatFilePath(filename,config,indexOfImage,FEATS_EXTINTION);
-    IF_ERROR_EXIT(msg);
+    if(msg != SP_CONFIG_SUCCESS){
+             PDEBUG("the file could not be opened");
+        return ERROR_VALUE;
+    }
 
      FILE* f = fopen(filename,"r");
     if(f == NULL){
         PDEBUG("the file could not be opened");
-        LOG_WRITE_ERROR("the file could not be opened");
-        return -1;
+        return ERROR_VALUE;
     }
 
     int count;
     int readIndex;
     int dim = spConfigGetPCADim(config,&msg);
-    IF_ERROR_EXIT(msg);
+     if(msg != SP_CONFIG_SUCCESS){
+        PDEBUG("the file could not be opened");
+        fclose(f);
+        return ERROR_VALUE;
+    }
+
     fscanf(f,"%d",&count);
     fscanf(f,"%d",&readIndex);
-_D printf(" index is %d\n", readIndex);
     double* coords;
     SPPoint* featsarr = (SPPoint*)malloc(sizeof(SPPoint)*count);
-    MALLOC_FAIL_INT(featsarr,-1);
+     if(coords == NULL){
+            PDEBUG("malloc failed.")
+            fclose(f);
+            return ERROR_VALUE;
+        }
     for(int i=0;i<count;i++){
         coords = (double*)malloc(sizeof(double)*dim);
-        MALLOC_FAIL_INT(coords,-1);
+        if(coords == NULL){
+                PDEBUG("malloc failed.")
+            free(featsarr);
+            fclose(f);
+            return ERROR_VALUE;
+        }
         for(int j=0;j<dim;j++){
             fscanf(f,"%lf",&(coords[j]));
         }
         featsarr[i] = spPointCreate(coords,dim,readIndex);
         if(featsarr[i] == NULL){
             PDEBUG("NULL SPPoint read from file");
-            LOG_WRITE_WARNING("NULL SPPoint read from file");
         }
     }
     *pfeats = featsarr;
 
     fclose(f);
     PDEBUG("finish reading points from file");
+    free(coords);
     return count;
 }
