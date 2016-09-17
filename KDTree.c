@@ -55,8 +55,7 @@ int maxSpread(int** matrix, int size, int dim){
 }
 
 
-
-KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod);
+KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod, int incramentalParam);
 
 //TODO: while testing, check the case where size=0.
 KDTree KDTInit(SPPoint* arr, int size, splitMethod spKDTreeSplitMethod){ //TODO: splitDimention is given by the system variables.
@@ -68,24 +67,24 @@ KDTree KDTInit(SPPoint* arr, int size, splitMethod spKDTreeSplitMethod){ //TODO:
 	KDArray kda = KDAInit(arr,size);
 	if(kda == NULL)
         return NULL;
-	KDTree kdt = (KDTree)malloc(sizeof(*kdt));
+	KDTree kdt = (KDTree)malloc(sizeof(struct kdtree_node_t));
 	if(kdt == NULL){
             PDEBUG("malloc failture");
-        KDADestroySaveSPPoints(kda);
+        KDADestroy(kda);
         return NULL;
 	}
-	kdt->head = BuildTreeFromKDArray(kda,spKDTreeSplitMethod);
+	kdt->head = BuildTreeFromKDArray(kda,spKDTreeSplitMethod,0);
 	KDADestroySaveSPPoints(kda);
 	PDEBUG("FINISH Initilizing KDTree")
 	return kdt;
 }
 
-KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod){
+KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod, int incramentalParam){
 	if(kda == NULL){
 		PDEBUG("null pointer was sent as argument 'kda'");
 		return NULL;
 	}
-	KDTreeNode kdtnode = (KDTreeNode)malloc(sizeof(*kdtnode));
+	KDTreeNode kdtnode = (KDTreeNode)malloc(sizeof(struct kdtree_node_t));
 	if(kdtnode == NULL){
              PDEBUG("malloc failture");
         return NULL;
@@ -109,10 +108,8 @@ KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod){
 		splitDim = rand() % KDAGetDimension(kda);
 
 	}else if(spKDTreeSplitMethod == INCREMENTAL){
-		static int lastSplitingDimension = -1; //TODO: check static decleration.
-		lastSplitingDimension++;
-		lastSplitingDimension %= KDAGetDimension(kda);
-		splitDim = lastSplitingDimension;
+		incramentalParam %= KDAGetDimension(kda);
+		splitDim = incramentalParam;
 	}else{
 		PDEBUG("invalid spKDTreeSplitMethod.");
 		return NULL;
@@ -122,16 +119,20 @@ KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod){
 
 	if(res < 1){
 		PDEBUG("KDArray splitting failed.");
+		if(leftKda != NULL)
+            KDADestroy(leftKda);
+        if(rightKda != NULL)
+            KDADestroy(rightKda);
 		return NULL;
 	}
 	kdtnode->dim = splitDim;
 	kdtnode->val = KDAGetSize(kda)%2==0 ? KDAGetSize(kda)/2 : (KDAGetSize(kda)+1)/2;
 	if(leftKda != NULL)
-        kdtnode->left = BuildTreeFromKDArray(leftKda,spKDTreeSplitMethod);
+        kdtnode->left = BuildTreeFromKDArray(leftKda,spKDTreeSplitMethod,incramentalParam+1);
     else
         kdtnode->left = NULL;
     if(leftKda != NULL)
-        kdtnode->right = BuildTreeFromKDArray(rightKda,spKDTreeSplitMethod);
+        kdtnode->right = BuildTreeFromKDArray(rightKda,spKDTreeSplitMethod,incramentalParam+1);
     else
         kdtnode->right = NULL;
 	kdtnode->data = NULL;
@@ -212,7 +213,11 @@ void nearestNeighborsAux(KDTreeNode curr, SPBPQueue bpq, SPPoint p);
 int* getNearestNeighbors(KDTree kdt, SPPoint p, SPConfig config, int* knn){
 	SP_CONFIG_MSG msg;
 	*knn = spConfigGetSPKNN(config,&msg);
-	 IF_ERROR_EXIT_RET(msg,NULL);
+	 if(msg != SP_CONFIG_SUCCESS){
+        PDEBUG("last called method did not success");
+        *knn = ERROR_VALUE;
+        return NULL;
+	 }
 	int* nearest;
 	SPBPQueue bpq = spBPQueueCreate(*knn);
 	//TODO: take care of errors

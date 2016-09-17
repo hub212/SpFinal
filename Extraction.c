@@ -106,7 +106,7 @@ int getExtractedFeatures(SPConfig config, int indexOfImage ,SPPoint** pfeats) {
     fscanf(f,"%d",&readIndex);
     double* coords;
     SPPoint* featsarr = (SPPoint*)malloc(sizeof(SPPoint)*count);
-     if(coords == NULL){
+     if(featsarr == NULL){
             PDEBUG("malloc failed.")
             fclose(f);
             return ERROR_VALUE;
@@ -126,11 +126,12 @@ int getExtractedFeatures(SPConfig config, int indexOfImage ,SPPoint** pfeats) {
         if(featsarr[i] == NULL){
             PDEBUG("NULL SPPoint read from file");
         }
+         free(coords);
     }
     *pfeats = featsarr;
 
+
     fclose(f);
     PDEBUG("finish reading points from file");
-    free(coords);
     return count;
 }

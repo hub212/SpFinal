@@ -13,7 +13,7 @@ SPListElement spListElementCreate(int index, double value) {
 	if(index < 0 || value <0.0){
 		return NULL;
 	}
-	temp = (SPListElement) malloc(sizeof(*temp));
+	temp = (SPListElement) malloc(sizeof(struct sp_list_element_t));
 	if (temp == NULL) { //Allocation Fails
 		return NULL;
 	}

@@ -52,7 +52,7 @@ SPPoint spPointCreate(double* data, int dim, int index) {
     SPPoint new_point;
 
     // allocationg memory for point
-    if((new_point = (SPPoint)malloc(sizeof(int)*2+sizeof(double*))) == NULL){
+    if((new_point = (SPPoint)malloc(sizeof(struct sp_point_t))) == NULL){
         perror("ERROR : spPointCreate failed - ");
         return NULL;
     }
