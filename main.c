@@ -11,15 +11,13 @@
 
 #include "SPConfig.h"
 #include "Debug.h"
-#include "Query.h"
-#include "KDTree.h"
-#include "GUI.h"
+#include "SPPoint.h"
 
 #undef IF_ERROR_EXIT
 #define IF_ERROR_EXIT(x) if((x) != SP_CONFIG_SUCCESS){  PDEBUG("last called method did not success"); return ERROR_VALUE; }
 
 #define ERROR_VALUE -1
-#define DEFAULT_CONFIG "spcbir.config"
+#define DEFAULT_CONFIG "/Users/Shlomi/Desktop/SoftwareProject/maser/maser/spcbir.config"
 
 
 //TODO: this should be converted to c++
@@ -36,7 +34,7 @@ int main(int argc,char** argv){
 	setvbuf(stdout, NULL, _IONBF, 0); //TODO: delete at the end.
 
 	bool configSent = false;
-	char* configFileName;
+	char* configFileName = NULL;
 	if(argc > 1 && strcmp(argv[argc-1],"-c") == 0){
 		perror("Configuration file name is required after the parameter -c.\nProgram terminated.\n");
 		return ERROR_VALUE;
@@ -100,42 +98,4 @@ int main(int argc,char** argv){
 	splitMethod split_method = spConfigGetSplitMethod(config,&msg);
 	IF_ERROR_EXIT(msg);
 
-	KDTree kdtree = KDTInit(featured, numOfFeatures, split_method);
-	if(kdtree == NULL){
-		PDEBUG("KDTInit returned NULL.");
-		return ERROR_VALUE;
-	}
-
-
-	int queryChoice = Query();
-	int* similarImages = NULL; //TODO: similar imaged go here.
-	int numOfSimilarImages = 0;
-
-
-	while(queryChoice == 1){
-		/*
-		 * TODO: k nearest neighbours searching here.
-		 */
-
-		bool minimalGui = spConfigMinimalGui(config,&msg);
-		IF_ERROR_EXIT(msg);
-
-		if(minimalGui == true)
-			showMinimalGUI(config,similarImages,numOfSimilarImages);
-		else
-			showNonMinimalGUI(config,similarImages,numOfSimilarImages);
-
-		queryChoice = Query();
-	}
-	KDTDestroy(kdtree);
-	spConfigDestroy(config);
-
-	if(queryChoice == 0){
-		printf("Have a nice day :)\n");
-		PDEBUG("the user terminated the program");
-		return 0;
-	}else{
-		PDEBUG("The program terminated due to error in Query.");
-		return ERROR_VALUE;
-	}
 }

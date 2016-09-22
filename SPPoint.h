@@ -19,6 +19,14 @@
  *
  */
 
+/** Point sturct **/
+struct sp_point_t {
+    int         dim;
+    double*     p_coor;
+    int         index;
+    
+};
+
 /** Type for defining the point **/
 typedef struct sp_point_t* SPPoint;
 
