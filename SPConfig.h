@@ -27,6 +27,28 @@ typedef enum sp_config_msg_t {
     SP_CONFIG_INVALID_CONFIG_LINE
 } SP_CONFIG_MSG;
 
+struct sp_config_t {
+    int spNumOfImages;
+    int spNumOfFeatures;
+    int spPCADimension;
+    int spNumOfSimilarImages;
+    int spKNN;
+    int spLoggerLevel;
+    
+    int assignArr[5];
+    
+    bool spExtractionMode;
+    bool spMinimalGUI;
+    
+    char* spImagesDirectory;
+    char* spImagesPrefix;
+    char* spImagesSuffix;
+    char* spPcaFilename;
+    char* spLoggerFilename;
+    
+    splitMethod spKDTreeSplitMethod;
+};
+
 typedef struct sp_config_t* SPConfig;
 
 /**
@@ -236,5 +258,7 @@ SP_CONFIG_MSG spConfigGetFeatFilePath(char fullPath[], SPConfig config, int inde
 SP_CONFIG_MSG spConfigGetLogFilename(char* loggerFileName, SPConfig config);
 
 int spConfigGetLoggerLevel(SPConfig config, SP_CONFIG_MSG* msg);
+
+void free_spconfig(SPConfig spconfig);
 
 #endif /* SPCONFIG_H_ */
