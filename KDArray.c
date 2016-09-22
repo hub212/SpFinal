@@ -3,11 +3,6 @@
 #include "KDArray.h"
 #include "Debug.h"
 
-#define MALLOC_FAIL(x) if(!(x)){ if(DEBUG) {PDEBUG("DEBUG: malloc failed");} return; }				//void
-#define MALLOC_FAIL_NULL(x) if(!(x)){ if(DEBUG) {PDEBUG("DEBUG: malloc failed");} return NULL; }	//returns null pointer
-#define MALLOC_FAIL_INT(x,y) if(!(x)){ if(DEBUG) {PDEBUG("DEBUG: malloc failed");} return (y); }	//returns integer y
-
-
 void printPoint(SPPoint point);
 void print_matrix(int** mat, int rows, int cols);
 void print_kdarray(KDArray kdarray);
@@ -28,16 +23,34 @@ int matrixcmp(const void * va, const void * vb){
 //TODO: DKAMatrix should be double**!
 int getIndexesSorted(SPPoint* arr, int size, int coor, int * res){
     SPPoint* p = (SPPoint*)malloc(size * sizeof(SPPoint));
-    MALLOC_FAIL_INT(p,-1);
+    if(p == NULL){
+        PDEBUG("Internal problem in function: allocation failed");
+        return ERROR_VALUE;
+    }
     for(int i=0;i<size;i++)
         p[i] = spPointCopy(arr[i]);
 
 
     int ** arranger =  (int**)malloc(size * sizeof(int*));
-    MALLOC_FAIL_INT(arranger,-1);
+    if(arranger == NULL){
+        PDEBUG("Internal problem in function: allocation failed");
+        for(int i=0;i<size;i++)
+            spPointDestroy(p[i]);
+        free(p);
+        return ERROR_VALUE;
+    }
     for(int i=0;i<size;i++){
         arranger[i] = (int*)malloc(2 * sizeof(int));
-        MALLOC_FAIL_INT(arranger[i],-1);
+        if(arranger[i] == NULL){
+            PDEBUG("Internal problem in function: allocation failed");
+            for(int i=0;i<size;i++)
+                spPointDestroy(p[i]);
+            free(p);
+            for(int j=0;j<i;i++)
+                free(arranger[j]);
+            free(arranger);
+            return ERROR_VALUE;
+        }
     }
 
     for(int i=0;i<size;i++){
@@ -138,16 +151,44 @@ int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
     	*kdRight = NULL;
     	return 1;
     }
+
+    *kdLeft = NULL;
+    *kdRight = NULL;
     if(size == 1){
     	KDArray copykda = (KDArray)malloc(sizeof(*copykda));
+    	if(copykda == NULL){
+            PDEBUG("Internal problem in function: allocation failed");
+            return ERROR_VALUE;
+    	}
     	copykda->dimension = kdArr->dimension;
     	copykda->size = size;
     	SPPoint* copyptsArr = (SPPoint*)malloc(sizeof(SPPoint)*size);
+    	if(copyptsArr == NULL){
+            PDEBUG("Internal problem in function: allocation failed");
+            KDADestroy(copykda);
+            return ERROR_VALUE;
+    	}
     	for(int i=0;i< size;i++)
     		copyptsArr[i] = kdArr->points[i];
     	int** copymat = (int**)malloc(sizeof(int*)*copykda->dimension);
+    	if(copymat == NULL){
+            PDEBUG("Internal problem in function: allocation failed");
+            KDADestroy(copykda);
+            free(copyptsArr);
+            return ERROR_VALUE;
+    	}
+
     	for(int i=0;i<copykda->dimension;i++){
     		copymat[i] = (int*)malloc(sizeof(int)*size);
+    		if(copymat[i] == NULL){
+                PDEBUG("Internal problem in function: allocation failed");
+                KDADestroy(copykda);
+                free(copyptsArr);
+                for(int j=0;j<i;j++)
+                    free(copymat[j]);
+                free(copymat);
+                return ERROR_VALUE;
+            }
     		for(int j=0;j<size;j++)
     			copymat[i][j] = kdArr->mat[i][j];
     	}
@@ -155,6 +196,7 @@ int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
     	copykda->mat = copymat;
     	*kdLeft = copykda;
     	*kdRight = NULL;
+
     	return 1;
     }
 
@@ -163,30 +205,45 @@ int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
     int ptsOnLeft = size%2==0 ? size/2 : (size+1)/2;
 
     int* X = (int*)malloc(sizeof(int)*size);
-    MALLOC_FAIL_INT(X,-1)
+    if(X == NULL){
+         PDEBUG("Internal problem in function: allocation failed");
+         free(arrangement);
+         return ERROR_VALUE;
+    }
     for(int i=0;i<size;i++)
     	X[i] = 1;
 
     for(int i=0;i<ptsOnLeft;i++)
     	*(X+arrangement[i]) = 0;
 
+    free(arrangement);
+
     SPPoint *left = (SPPoint*)malloc(sizeof(SPPoint)*ptsOnLeft);
     SPPoint *right = (SPPoint*)malloc(sizeof(SPPoint)*(size-ptsOnLeft));
     int *map1 = (int*)malloc(sizeof(int)*size);
     int *map2 = (int*)malloc(sizeof(int)*size);
-    MALLOC_FAIL_INT(left,-1)
-    MALLOC_FAIL_INT(right,-1)
-	MALLOC_FAIL_INT(map1,-1)
-	MALLOC_FAIL_INT(map2,-1)
+
+    if(left == NULL || right == NULL || map1 == NULL || map2 == NULL){
+        PDEBUG("Internal problem in function: allocation failed");
+        if(left != NULL) free(left);
+        if(right != NULL) free(right);
+        if(map1 != NULL) free(map1);
+        if(map2 != NULL) free(map2);
+        return ERROR_VALUE;
+    }
+
 
 	 int dim = kdArr->dimension;
 	 int** lMatrix = NULL;
 	 int** rMatrix = NULL;
 	 lMatrix = (int**)malloc(sizeof(int*)*dim);
 	 rMatrix = (int**)malloc(sizeof(int*)*dim);
-	 MALLOC_FAIL_INT(lMatrix,-1);
-	 MALLOC_FAIL_INT(rMatrix,-1);
-
+    if(lMatrix == NULL || rMatrix == NULL){
+        PDEBUG("Internal problem in function: allocation failed");
+        if(lMatrix != NULL) free(lMatrix);
+        if(rMatrix != NULL) free(rMatrix);
+        return ERROR_VALUE;
+    }
 
 	 for(int i=0;i<size;i++){
 	 		map1[i] = map2[i] = -1;
@@ -210,8 +267,13 @@ int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
 	 for(int i=0;i<dim;i++){
 	  	lMatrix[i] = (int*)malloc(ptsOnLeft * sizeof(int));
 	  	rMatrix[i] = (int*)malloc((size-ptsOnLeft) * sizeof(int));
-	   	MALLOC_FAIL_INT(lMatrix[i],-1)
-	  	MALLOC_FAIL_INT(rMatrix[i],-1)
+
+	  	if(lMatrix[i] == NULL || rMatrix[i] == NULL){ //TODO: may leaks.
+            PDEBUG("Internal problem in function: allocation failed");
+            if(lMatrix != NULL) free(lMatrix);
+            if(rMatrix != NULL) free(rMatrix);
+            return ERROR_VALUE;
+        }
 
 	  	li=0; ri=0;
         for(int j=0;j<size;j++){
@@ -230,6 +292,13 @@ int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
 	 leftkda = (KDArray)malloc(sizeof(struct kdarray_t));
 	 rightkda = (KDArray)malloc(sizeof(struct kdarray_t));
 
+	 if(leftkda == NULL || rightkda == NULL){ //TODO: may leaks.
+            PDEBUG("Internal problem in function: allocation failed");
+            if(leftkda != NULL) free(leftkda);
+            if(rightkda != NULL) free(rightkda);
+            return ERROR_VALUE;
+    }
+
 	 leftkda->dimension = dim;
 	 leftkda->size = ptsOnLeft;
 	 leftkda->points = left;
@@ -244,12 +313,6 @@ int KDASplit(KDArray kdArr, int coor, KDArray* kdLeft, KDArray* kdRight){
 	*kdLeft = leftkda;
 	*kdRight = rightkda;
 
-	if(DEBUG){
-	//	PDEBUG("splitted into:")
-	//	print_kdarray(*kdLeft);
-	//	printf("and:\n");
-		//print_kdarray(*kdRight);
-	}
 	free(map2);
 	free(map1);
 	free(X);

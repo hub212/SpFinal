@@ -8,14 +8,11 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
-#define MALLOC_FAIL(x) if(!(x)){ return; }				//void
-#define MALLOC_FAIL_NULL(x) if(!(x)){ return NULL; }	//returns null pointer
-#define MALLOC_FAIL_INT(x,y) if(!(x)){ return (y); }	//returns integer y
 
 #define INVALID -1
 
-#define IF_ERROR_EXIT(x) if((x) != SP_CONFIG_SUCCESS){  PDEBUG("last called method did not success"); return NULL; }
 
 struct kdtree_node_t{
 	int dim;
@@ -69,7 +66,14 @@ KDTree KDTInit(SPPoint* arr, int size, splitMethod spKDTreeSplitMethod){ //TODO:
 		return NULL;
 	}
 	KDArray kda = KDAInit(arr,size);
+	if(kda == NULL)
+        return NULL;
 	KDTree kdt = (KDTree)malloc(sizeof(*kdt));
+	if(kdt == NULL){
+            PDEBUG("malloc failture");
+        KDADestroySaveSPPoints(kda);
+        return NULL;
+	}
 	kdt->head = BuildTreeFromKDArray(kda,spKDTreeSplitMethod);
 	KDADestroySaveSPPoints(kda);
 	PDEBUG("FINISH Initilizing KDTree")
@@ -77,12 +81,15 @@ KDTree KDTInit(SPPoint* arr, int size, splitMethod spKDTreeSplitMethod){ //TODO:
 }
 
 KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod){
-	PDEBUG(">")
 	if(kda == NULL){
 		PDEBUG("null pointer was sent as argument 'kda'");
 		return NULL;
 	}
 	KDTreeNode kdtnode = (KDTreeNode)malloc(sizeof(*kdtnode));
+	if(kdtnode == NULL){
+             PDEBUG("malloc failture");
+        return NULL;
+	}
 	if(KDAGetSize(kda) == 1){
 		kdtnode->dim = INVALID;
 		kdtnode->val = INVALID;
@@ -129,7 +136,6 @@ KDTreeNode BuildTreeFromKDArray(KDArray kda, splitMethod spKDTreeSplitMethod){
         kdtnode->right = NULL;
 	kdtnode->data = NULL;
 
-	PDEBUG("here by now")
 
 	KDADestroySaveSPPoints(leftKda);
 	KDADestroySaveSPPoints(rightKda);
@@ -200,24 +206,26 @@ KDTreeNode KDTNGetRightChild(KDTreeNode kdtn){
 double square(double a){
 	return a*a;
 }
-void nearestNeighborsAux(KDTreeNode curr, SPBPQueue bpq, SPPoint p, int k);
+void nearestNeighborsAux(KDTreeNode curr, SPBPQueue bpq, SPPoint p);
 
 //TODO: returns NULL in case of error
-int* getNearestNeighbors(KDTree kdt, SPPoint p, SPConfig config){
+int* getNearestNeighbors(KDTree kdt, SPPoint p, SPConfig config, int* knn){
 	SP_CONFIG_MSG msg;
-	int spKNN = spConfigGetSPKNN(config,&msg);
-	 IF_ERROR_EXIT(msg);
-	int k = spConfigGetNumOfSimilarImages(config,&msg);
-	 IF_ERROR_EXIT(msg);
+	*knn = spConfigGetSPKNN(config,&msg);
+	 IF_ERROR_EXIT_RET(msg,NULL);
 	int* nearest;
-	SPBPQueue bpq = spBPQueueCreate(spKNN);
+	SPBPQueue bpq = spBPQueueCreate(*knn);
 	//TODO: take care of errors
 
-	nearestNeighborsAux(kdt->head,bpq,p,k);
+	nearestNeighborsAux(kdt->head,bpq,p);
 
-	nearest = (int*)malloc(sizeof(int)*k);
+	nearest = (int*)malloc(sizeof(int)*(*knn));
+	if(nearest == NULL){
+            PDEBUG("malloc failture");
+        return NULL;
+	}
 	SPListElement temp;
-	for(int i=0;i<k;i++){
+	for(int i=0;i<*knn;i++){
 		temp = spBPQueuePeek(bpq);
 		nearest[i] = spListElementGetIndex(temp);
 		spBPQueueDequeue(bpq);
@@ -228,7 +236,7 @@ int* getNearestNeighbors(KDTree kdt, SPPoint p, SPConfig config){
 }
 
 //TODO: returns 0 or -1 for error.
-void nearestNeighborsAux(KDTreeNode curr, SPBPQueue bpq, SPPoint p, int k){
+void nearestNeighborsAux(KDTreeNode curr, SPBPQueue bpq, SPPoint p){
 	if(curr == NULL)
 		return;
 	/* Add the current point to the BPQ. Note that this is a no-op if the
@@ -243,19 +251,19 @@ void nearestNeighborsAux(KDTreeNode curr, SPBPQueue bpq, SPPoint p, int k){
 	/* Recursively search the half of the tree that contains the test point. */
 	bool searchedOnLeft;
 	if(spPointGetAxisCoor(p,curr->dim)<= curr->val){
-		nearestNeighborsAux(curr->left,bpq,p,k);
+		nearestNeighborsAux(curr->left,bpq,p);
 		searchedOnLeft = true;
 	}else{
-		nearestNeighborsAux(curr->right,bpq,p,k);
+		nearestNeighborsAux(curr->right,bpq,p);
 		searchedOnLeft = false;
 	}
 	/* If the candidate hypersphere crosses this splitting plane, look on the
 	* other side of the plane by examining the other subtree*/
-	if(spBPQueueIsFull(bpq) == 0 || square(spPointGetAxisCoor(p,curr->dim)-curr->val) < spBPQueueMaxValue(bpq)){
-		if(searchedOnLeft)
-			nearestNeighborsAux(curr->right,bpq,p,k);
+	if(spBPQueueIsFull(bpq) == false || square(spPointGetAxisCoor(p,curr->dim)-curr->val) < spBPQueueMaxValue(bpq)){
+		if(searchedOnLeft == true)
+			nearestNeighborsAux(curr->right,bpq,p);
 		else
-			nearestNeighborsAux(curr->left,bpq,p,k);
+			nearestNeighborsAux(curr->left,bpq,p);
 	}
 }
 
